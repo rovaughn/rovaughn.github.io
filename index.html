@@ -14,7 +14,7 @@
       <li><a href="/self.html">About me</a>
       <li><a href="/browse.html">Browse</a>
       <li><a href="/rss.rss">RSS</a>
-      <li><a href="https://github.com/alecrn">GitHub</a>
+      <li><a href="https://github.com/rovaughn">GitHub</a>
       </ul>
     </nav>
     <h2>How to Write a New Git Protocol</h2>
@@ -29,7 +29,7 @@
 <pre><code>$ encrypted-git push http://example.com/
 </code></pre>
 
-<p>At least, that&rsquo;s what I thought. But then I discovered git-remote-helpers.</p>
+<p>At least, that&rsquo;s what I thought until I discovered git-remote-helpers.</p>
 
 <h2>Git remote helpers</h2>
 
@@ -50,7 +50,7 @@ $ git push --all origin
 
 <p>Which will cause git to invoke <code>git-remote-asdf origin http://example.com/repo</code>.</p>
 
-<p>Unfortunately, I found the documentation to be severely lacking on the details I needed to actually implement a helper. But then, in the Git source code, I found a shell script called <a href="https://github.com/git/git/blob/master/git-remote-testgit.sh">git-remote-testgit.sh</a> that implements a <code>testgit</code> protocol that is seemingly used to test the git remote helper system. It basically implements pushing and fetching from local repositories on the same filesystem. So</p>
+<p>Unfortunately, I found the documentation to be severely lacking on the details I needed to actually implement a helper. But then, in the Git source code, I found a shell script called <a href="https://github.com/git/git/blob/master/git-remote-testgit.sh">git-remote-testgit.sh</a> that implements a <code>testgit</code> which is used to test the git remote helper system. It basically implements pushing and fetching from local repositories on the same filesystem. So</p>
 
 <pre><code>git clone testgit::/existing-repository
 </code></pre>
@@ -62,23 +62,54 @@ $ git push --all origin
 
 <p>Similarly, you can push and fetch from local repositories over the testgit protocol.</p>
 
-<p>In this article, we&rsquo;ll walk through the code of git-remote-testgit and reimplement it in Go by creating a brand new helper, <code>git-remote-go</code>. Along the way, I&rsquo;ll explain what the code means, and the various things I had to learn in order to implement my own remote helper, <a href="https://github.com/alecrn/git-remote-grave">git-remote-grave</a>.</p>
+<p>In this article, we&rsquo;ll walk through the code of git-remote-testgit and reimplement it in Go by creating a brand new helper, <code>git-remote-go</code>. Along the way, I&rsquo;ll explain what the code means, and the various things I had to learn in order to implement my own remote helper, <a href="https://github.com/rovaughn/git-remote-grave">git-remote-grave</a>.</p>
+
+<h2>Some basics</h2>
+
+<p>To make the following sections clearer, let&rsquo;s establish some terminology and basic mechanisms.</p>
+
+<p>When we run</p>
+
+<pre><code>$ git remote add myremote go::http://example.com/repo
+$ git push myremote master
+</code></pre>
+
+<p>Git will instantiate a new process by running the command</p>
+
+<pre><code>git-remote-go myremote http://example.com/repo
+</code></pre>
+
+<p>Notice that the first argument is the <em>remote name</em>, and the second argument is the <em>url</em>.</p>
+
+<p>When you run</p>
+
+<pre><code>$ git clone go::http://example.com/repo
+</code></pre>
+
+<p>the helper will be instantiated with</p>
+
+<pre><code>git-remote-go origin http://example.com/repo
+</code></pre>
+
+<p>This is because the remote <code>origin</code> is automatically created in cloned repositories.</p>
+
+<p>When git instanties the helper as a new process, it opens up pipes for stdin, stdout, and stderr for communicating with it. Commands are sent to the helper over stdin, and the helper responds over stdout. Any output the helper produces on stderr is redirected to wherever git&rsquo;s stderr is going&mdash;which is probably the terminal.</p>
+
+<p>The following diagram demonstrates this relationship.</p>
+
+<p><img width="500" style="padding:10px 0px;" src="/images/git-remote-helper-1.png"></p>
+
+<p>The last point I want to make before we begin is to distinguish the <em>local</em> and <em>remote</em> repository. Generally, but not always, the local repository is the one we are running git from, and the remote is the one we are making a connection to.</p>
+
+<p>So in a push, we are sending changes from the local to the remote. In a fetch, we are taking changes from the remote to the local. In a clone, we are cloning from the remote into the local.</p>
+
+<p>When git runs the helper, it sets the environment variable <code>GIT_DIR</code> to the Git directory of the local repository (e.g. <code>local/.git</code>).</p>
 
 <h2>Starting the project</h2>
 
 <p>In this article, I&rsquo;m assuming that <a href="https://golang.org/doc/install">Go is installed</a>, with <code>$GOPATH</code> pointing to a directory named <code>go</code>.</p>
 
 <p>Let&rsquo;s start by creating the directory <code>go/src/git-remote-go</code>. This will make it possible to install our helper just by running <code>go install</code> (assuming <code>go/bin</code> is on the PATH).</p>
-
-<p>As we saw above, when git calls a remote helper, it passes the remote name as the first argument, and the URL as the second. So if we were to run the command</p>
-
-<pre><code>git clone go::http://example.com/repo
-</code></pre>
-
-<p>Our program would be invoked like so</p>
-
-<pre><code>git-remote-go origin http://example.com/repo
-</code></pre>
 
 <p>With this in mind, we can write the first few lines of <code>go/src/git-remote-go/main.go</code>.</p>
 
@@ -142,15 +173,15 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 </pre></div>
 
 
-<p>Note: <code>$GIT_DIR</code> is an environment variable that is set by git before calling the helper. It refers to the <code>.git</code> directory of the repository we are cloning into, fetching into, or pushing from.</p>
+<p>The variable they call <code>alias</code> is what we are calling <code>remoteName</code>. <code>url</code> means the same thing.</p>
 
-<p>The variable they call <code>alias</code> is what we are calling <code>remoteName</code>. <code>url</code> means the same thing. The next declaration,</p>
+<p>The next declaration is</p>
 
 <div class="highlight"><pre><span class="nv">dir</span><span class="o">=</span><span class="s2">&quot;$GIT_DIR/testgit/$alias&quot;</span>
 </pre></div>
 
 
-<p>defines a local directory inside <code>$GIT_DIR</code> for the given remote. All the files specific to the helper and that remote will reside in that directory. So if the remote is <code>origin</code>, then the files will be stored in <code>.git/testgit/origin</code>.</p>
+<p>This creates a namespace in the Git directory that is specific to the testgit protocol and to the remote we are using. This way the testgit files for the <code>origin</code> remote are different from the <code>backup</code> remote.</p>
 
 <p>Down below, we see the statement</p>
 
@@ -160,7 +191,7 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 
 <p>This will make sure the local directory is created, if it doesn&rsquo;t exist already.</p>
 
-<p>Let&rsquo;s add the creation of the local directory to our Go program:</p>
+<p>Let&rsquo;s add the creation of the local directory to our Go program.</p>
 
 <div class="highlight"><pre><span class="c1">// Add &quot;path&quot; to the import list</span>
 
@@ -201,7 +232,7 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 
 <p>In the above tree, <code>remotes/origin/master</code> contains the SHA-hash of the most recent commit in the <code>master</code> branch of the <code>origin</code> remote. <code>heads/master</code> refers to the most recent commit of your local <code>master</code> branch. A ref is like a pointer to a commit.</p>
 
-<p>A refspec allows us to map remote refs to local refs. In the above code, <code>prefix</code> is the directory where the remote refs will be held. If the remote name is origin, then the remote master branch would be determined by the ref <code>.git/refs/testgit/origin/master</code>. It basically creates a protocol-specific namespace for remote branches, like the <code>$dir</code> variable.</p>
+<p>A refspec allows us to map remote refs to local refs. In the above code, <code>prefix</code> is the directory where the remote refs will be held. If the remote name is origin, then the remote master branch would be determined by the ref <code>.git/refs/testgit/origin/master</code>. It basically creates a protocol-specific namespace for remote branches.</p>
 
 <p>The next line is the actual refspec. The line</p>
 
@@ -209,7 +240,7 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 </pre></div>
 
 
-<p>Expands to</p>
+<p>expands to</p>
 
 <div class="highlight"><pre><span class="nv">default_refspec</span><span class="o">=</span><span class="s2">&quot;refs/heads/*:refs/testgit/$alias/*&quot;</span>
 </pre></div>
@@ -261,7 +292,7 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 </pre></div>
 
 
-<p>Another fact about <code>$GIT_DIR</code> is that if it is set in the environment, the <code>git</code> binary will use the directory in <code>$GIT_DIR</code> as its <code>.git</code> directory, instead of the local <code>.git</code>. Essentially, this command makes it so that all git commands run by the helper will run in the directory we are pushing to or fetching from.</p>
+<p>Another fact about <code>$GIT_DIR</code> is that if it is set in the environment, the <code>git</code> binary will use the directory in <code>$GIT_DIR</code> as its <code>.git</code> directory, instead of the local <code>.git</code>. This command makes it so that all future git commands run by the helper will run in the context of the remote repository.</p>
 
 <p>We&rsquo;ll translate this to</p>
 
@@ -410,7 +441,7 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 
 <p><code>refspec $refspec</code> tells git what refspec we want to use.</p>
 
-<p>The <code>*import-marks $gitmarks</code> and <code>*export-marks $gitmarks</code> means git should save the marks it generates to the <code>gitmarks</code> files. The <code>*</code> means that git cannot ignore these lines if they are unsupported, and must fail. This is because the helper depends on the marks files being saved.</p>
+<p>The <code>*import-marks $gitmarks</code> and <code>*export-marks $gitmarks</code> means git should save the marks it generates to the <code>gitmarks</code> files. The <code>*</code> means that if git does not understand these lines, it must fail instead of ignoring them. This is because the helper depends on the marks files being saved, and won&rsquo;t work with versions of git that don&rsquo;t support this.</p>
 
 <p>Let&rsquo;s ignore <code>signed-tags</code>, <code>no-private-update</code> and <code>option</code>, as they are provided in git-remote-testgit for completeness of testing, and we don&rsquo;t need them for this example. We can implement the above simply as</p>
 
@@ -456,7 +487,8 @@ mkdir -p <span class="s2">&quot;$dir&quot;</span>
 <span class="c1">// Returns a map of refnames to objectnames.</span>
 <span class="kd">func</span> <span class="nx">GitListRefs</span><span class="p">()</span> <span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
   <span class="nx">out</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span>
-    <span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="s">&quot;for-each-ref&quot;</span><span class="p">,</span> <span class="s">&quot;--format=%(objectname) %(refname)&quot;</span><span class="p">,</span> <span class="s">&quot;refs/heads/&quot;</span><span class="p">,</span>
+    <span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="s">&quot;for-each-ref&quot;</span><span class="p">,</span> <span class="s">&quot;--format=%(objectname) %(refname)&quot;</span><span class="p">,</span>
+    <span class="s">&quot;refs/heads/&quot;</span><span class="p">,</span>
   <span class="p">).</span><span class="nx">Output</span><span class="p">()</span>
   <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
     <span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
@@ -561,7 +593,7 @@ sed -e <span class="s2">&quot;s#refs/heads/#${prefix}/heads/#g&quot;</span>
 
 <p>After that, <code>feature done</code> is printed, signalling that the export stream follows.</p>
 
-<p>Finally, git fast-export is called in the remote repository, setting the marks files to the remote marks, <code>$testgitmarks</code>, and then passing the list of refs to export.</p>
+<p>Finally, git fast-export is called in the remote repository, setting the marks files to the remote marks, <code>$testgitmarks</code>, and then passing the list of refs we want to export.</p>
 
 <p>The output of git-fast-export is piped through a sed script that maps <code>refs/heads/</code> to <code>refs/testgit/$alias/heads/</code>. The refspec that we passed to git will take care of this mapping when we export.</p>
 
@@ -610,13 +642,11 @@ sed -e <span class="s2">&quot;s#refs/heads/#${prefix}/heads/#g&quot;</span>
 </pre></div>
 
 
-<p>That ended up being pretty easy.</p>
-
 <h2>The <code>export</code> command</h2>
 
-<p>Next up is the <code>export</code> command. When we finish this one, we&rsquo;re done.</p>
+<p>Next up is the <code>export</code> command. When we finish this one, our helper is done.</p>
 
-<p>git calls this when we are pushing to the remote repository. After receiving the command on stdin, git follows it with a stream produced by <code>git fast-export</code>, which we can <code>git fast-import</code> into the remote repository.</p>
+<p>Git issues this command when we are pushing to the remote repository. After sending the command over stdin, git follows it with a stream produced by <code>git fast-export</code>, which we can <code>git fast-import</code> into the remote repository.</p>
 
 <div class="highlight"><pre><span class="k">if </span><span class="nb">test</span> -n <span class="s2">&quot;$GIT_REMOTE_TESTGIT_FAILURE&quot;</span>
 <span class="k">then</span>
@@ -664,9 +694,9 @@ git <span class="k">for</span>-each-ref --format<span class="o">=</span><span cl
 
 <p>The next command is rather self explanatory. <code>git fast-import</code> is run on the stream we receive on stdin, passing <code>--force</code> if specified, <code>--quiet</code>, and the remote marks files.</p>
 
-<p>Next we call <code>git for-each-ref</code> again to see what refs have changed. For every ref this command returns, we check to see if the <code>$refname $objectname</code> pair is in the <code>$before</code> list. If it is, nothing changed and we continue onto the next. If the ref isn&rsquo;t in the list, however, we print <code>ok $refname</code> to signify to git that the ref updated successfully. You can also print <code>error $refname $message</code> to tell git that an import failed.</p>
+<p>Next it runs <code>git for-each-ref</code> again to see what refs have changed. For every ref this command returns, it checks to see if the <code>$refname $objectname</code> pair is in the <code>$before</code> list. If it is, nothing changed and it continues onto the next. If the ref isn&rsquo;t in the list, however, it prints <code>ok $refname</code> to signify to git that the ref updated successfully. Printing <code>error $refname $message</code> tells git that a ref failed to be imported on the remote end.</p>
 
-<p>Finally, we print a blank line to show that we are done importing.</p>
+<p>Finally, it prints a blank line to show that the import is done.</p>
 
 <p>Now we can write it ourselves. We can use the <code>GitListRefs()</code> function we defined earlier.</p>
 
@@ -734,24 +764,19 @@ Hello, world!
 
 <h2>Uses for git remote helpers</h2>
 
-<p>Git remote helpers have been used to implement interfaces to other source control (like <a href="https://github.com/felipec/git-remote-hg">felipec/git-remote-hg</a>, push code into CouchDBs (<a href="https://github.com/peritus/git-remote-couch">peritus/git-remote-couch</a>), among others. You could probably think of more.</p>
+<p>Git remote helpers have been used to implement interfaces to other source control (like <a href="https://github.com/felipec/git-remote-hg">felipec/git-remote-hg</a>), or push code into CouchDBs (<a href="https://github.com/peritus/git-remote-couch">peritus/git-remote-couch</a>), among others. You could probably think of more.</p>
 
-<p>I wrote a git remote helper for my original motivation, <a href="https://github.com/alecrn/git-remote-grave">git-remote-grave</a>. You can use it to push and fetch from encrypted archives on your file system or over HTTP/HTTPS.</p>
+<p>I wrote a git remote helper for my original motivation, <a href="https://github.com/rovaughn/git-remote-grave">git-remote-grave</a>. You can use it to push and fetch from encrypted archives on your file system or over HTTP/HTTPS.</p>
 
 <pre><code>$ git remote add usb grave::/media/usb/backup.grave
 $ git push --all backup
 </code></pre>
 
-<p>Using a <a href="/faq.html#What-is-the-compression-method">couple compression tricks</a>, the archives are typically 22% the size of the original repository.</p>
+<p>Using a <a href="https://filegrave.com/faq.html#What-is-the-compression-method">couple compression tricks</a>, the archives are typically 22% the size of the original repository.</p>
 
-<p>In fact, I made this site, <a href="/">filegrave.com</a>, as a convenient place to store your confidential data. Immutable, anonymous repositories are free for a limited time, if you want to try it out:</p>
+<p>If you want a convenient place to store your encrypted git repositories, I made the site <a href="https://filegrave.com/">filegrave.com</a>.</p>
 
-<pre><code>$ git remote add immutable-backup grave::https://filegrave.com/anon/1234
-$ git push --all backup
-$ git fetch
-</code></pre>
-
-<p>If you&rsquo;d like permanent, private, encrypted repositories you can push and fetch from, see <a href="/">here</a> for more information.</p>
+<p>Discussion of this article is taking place on <a href="#">Hacker News</a>.</p>
 
   </article>
   <script>
