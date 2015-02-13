@@ -109,6 +109,7 @@ func Main() error {
 
 	template = bytes.Replace(template, []byte("{TITLE}"), []byte(title), -1)
 	template = bytes.Replace(template, []byte("{CONTENT}"), filtered, -1)
+	template = bytes.Replace(template, []byte("{NAME}"), []byte(os.Args[1]), -1)
 
 	if _, err := os.Stdout.Write(template); err != nil {
 		return err

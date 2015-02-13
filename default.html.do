@@ -5,5 +5,5 @@ template="template.html"
 
 redo-ifchange compiler "$src" "$template"
 
-./compiler <"$src"
+./compiler "$2" <"$src"
 

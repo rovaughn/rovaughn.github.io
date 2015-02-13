@@ -4,7 +4,7 @@
   <title>Lorem Ipsum Dolor Sit Amet - rovaughn</title>
   <link rel="stylesheet" href="/main.css">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width; maximum-scale=1; minimum-scale=1;">
+  <meta name="viewport" content="width=device-width, maximum-scale=1, minimum-scale=1;">
 </head>
 <body>
   <article>
@@ -32,5 +32,10 @@
 <p>Maecenas malesuada, sapien vel condimentum sodales, dolor est efficitur dolor, ut iaculis neque felis non mi. Suspendisse convallis odio sit amet pretium rutrum. Nulla facilisi. Aliquam enim elit, finibus in odio suscipit, ornare porta lectus. Morbi ut arcu eget lectus laoreet malesuada vel eu nunc. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Fusce a efficitur augue, eget dapibus tortor. Mauris luctus quis erat a mollis. Ut condimentum justo ut ante sagittis congue. Pellentesque tempus ligula a sapien rhoncus, eu scelerisque purus suscipit. Duis finibus sodales ante, a rhoncus massa lobortis vel. Praesent aliquam faucibus diam. Morbi sit amet egestas lectus.</p>
 
   </article>
+  <script>
+    if (window.location.pathname !== '/lorem.html') {
+      window.history.replaceState(null, "Lorem Ipsum Dolor Sit Amet", "/lorem.html");
+    }
+  </script>
 </body>
 </html>

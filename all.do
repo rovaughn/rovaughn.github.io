@@ -7,3 +7,5 @@ redo-ifchange posts main.css
   ls *.md | sed -e 's|\.md$|\.html|g'
 ) | xargs redo-ifchange
 
+redo-ifchange index.html
+

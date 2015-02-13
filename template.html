@@ -4,7 +4,7 @@
   <title>{TITLE} - rovaughn</title>
   <link rel="stylesheet" href="/main.css">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width; maximum-scale=1; minimum-scale=1;">
+  <meta name="viewport" content="width=device-width, maximum-scale=1, minimum-scale=1;">
 </head>
 <body>
   <article>
@@ -20,5 +20,10 @@
     <h2>{TITLE}</h2>
     {CONTENT}
   </article>
+  <script>
+    if (window.location.pathname !== '/{NAME}.html') {
+      window.history.replaceState(null, "{TITLE}", "/{NAME}.html");
+    }
+  </script>
 </body>
 </html>
