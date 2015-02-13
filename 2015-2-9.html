@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>How to Write a New Git Protocol - rovaughn</title>
+  <link rel="stylesheet" href="/main.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width; maximum-scale=1; minimum-scale=1;">
+</head>
+<body>
+  <article>
+    <h1>Rovaughn</h1>
+    <nav>
+      <ul>
+      <li><a href="/self.html">About me</a>
+      <li><a href="/index.html">Browse</a>
+      <li><a href="/rss">RSS</a>
+      <li><a href="https://github.com/alecrn">GitHub</a>
+      </ul>
+    </nav>
+    <h2>How to Write a New Git Protocol</h2>
+    <p>I used to have trouble keeping track of my files. I often couldn&rsquo;t remember whether I saved a file on my desktop, laptop, or phone, or if it was floating around in the cloud somewhere. Plus, with certain information, like passwords and bitcoin keys, I didn&rsquo;t feel comfortable just sending that in an email to myself in plain text.</p>
+
+<p>What I wanted was to store my data in a git repository that was backed up to a single location. I could view old versions of files, and wouldn&rsquo;t have to worry about my data being deleted. Plus, I was familiar with using git to push and fetch files to various computers.</p>
+
+<p>But, like I said, I didn&rsquo;t want to just upload my secret keys and passwords to GitHub or BitBucket, even in a private repository.</p>
+
+<p>I had the cool idea of writing a tool to encrypt my repository before I pushed it into backup. Unfortunately, I wouldn&rsquo;t be able to use <code>git push</code> like I normally would, and instead would have to use something like this:</p>
+
+<pre><code>$ encrypted-git push http://example.com/
+</code></pre>
+
+<p>At least, that&rsquo;s what I thought. But then I discovered git-remote-helpers.</p>
+
+<h2>Git remote helpers</h2>
+
+<p>Online, I found the <a href="https://www.kernel.org/pub/software/scm/git/docs/git-remote-helpers.html">documentation for git remote helpers</a>.</p>
+
+<p>It turns out that if you were to run the commands</p>
+
+<pre><code>$ git remote add origin asdf://example.com/repo
+$ git push --all origin
+</code></pre>
+
+<p>Git would first check if it had the <code>asdf</code> protocol built in, and when it saw it didn&rsquo;t, it would check if <code>git-remote-asdf</code> was on the PATH, and if it was, it&rsquo;d run <code>git-remote-asdf origin asdf://example.com/repo</code> to handle the communications.</p>
+
+<p>Similarly, you can also run</p>
+
+<pre><code>$ git clone asdf::http://example.com/repo
+</code></pre>
+
+<p>Which will cause git to invoke <code>git-remote-asdf origin http://example.com/repo</code>.</p>
+
+<p>Unfortunately, I found the documentation to be severely lacking on the details I needed to actually implement a helper. But then, in the Git source code, I found a shell script called <a href="https://github.com/git/git/blob/master/git-remote-testgit.sh">git-remote-testgit.sh</a> that implements a <code>testgit</code> protocol that is seemingly used to test the git remote helper system. It basically implements pushing and fetching from local repositories on the same filesystem. So</p>
+
+<pre><code>git clone testgit::/existing-repository
+</code></pre>
+
+<p>is equivalent to</p>
+
+<pre><code>git clone /existing-repository
+</code></pre>
+
+<p>Similarly, you can push and fetch from local repositories over the testgit protocol.</p>
+
+<p>In this article, we&rsquo;ll walk through the code of git-remote-testgit and reimplement it in Go by creating a brand new helper, <code>git-remote-go</code>. Along the way, I&rsquo;ll explain what the code means, and the various things I had to learn in order to implement my own remote helper, <a href="https://github.com/alecrn/git-remote-grave">git-remote-grave</a>.</p>
+
+<h2>Starting the project</h2>
+
+<p>In this article, I&rsquo;m assuming that <a href="https://golang.org/doc/install">Go is installed</a>, with <code>$GOPATH</code> pointing to a directory named <code>go</code>.</p>
+
+<p>Let&rsquo;s start by creating the directory <code>go/src/git-remote-go</code>. This will make it possible to install our helper just by running <code>go install</code> (assuming <code>go/bin</code> is on the PATH).</p>
+
+<p>As we saw above, when git calls a remote helper, it passes the remote name as the first argument, and the URL as the second. So if we were to run the command</p>
+
+<pre><code>git clone go::http://example.com/repo
+</code></pre>
+
+<p>Our program would be invoked like so</p>
+
+<pre><code>git-remote-go origin http://example.com/repo
+</code></pre>
+
+<p>With this in mind, we can write the first few lines of <code>go/src/git-remote-go/main.go</code>.</p>
+
+<div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+  <span class="s">&quot;log&quot;</span>
+  <span class="s">&quot;os&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">Main</span><span class="p">()</span> <span class="p">(</span><span class="nx">er</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">)</span> <span class="p">&lt;</span> <span class="mi">3</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Usage: git-remote-go remote-name url&quot;</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">remoteName</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  <span class="nx">url</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">Main</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>I&rsquo;ve separated <code>Main()</code> as a separate function because error handling is easier when we can return errors. It also allows us to use <code>defer</code>, since <code>log.Fatal</code> calls <code>os.Exit</code>, which doesn&rsquo;t run <code>defer</code>&rsquo;d functions.</p>
+
+<p>Now let&rsquo;s look at the top of git-remote-testgit to see what to do next.</p>
+
+<div class="highlight"><pre><span class="c">#!/bin/sh</span>
+<span class="c"># Copyright (c) 2012 Felipe Contreras</span>
+
+<span class="nb">alias</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">url</span><span class="o">=</span><span class="nv">$2</span>
+
+<span class="nv">dir</span><span class="o">=</span><span class="s2">&quot;$GIT_DIR/testgit/$alias&quot;</span>
+<span class="nv">prefix</span><span class="o">=</span><span class="s2">&quot;refs/testgit/$alias&quot;</span>
+
+<span class="nv">default_refspec</span><span class="o">=</span><span class="s2">&quot;refs/heads/*:${prefix}/heads/*&quot;</span>
+
+<span class="nv">refspec</span><span class="o">=</span><span class="s2">&quot;${GIT_REMOTE_TESTGIT_REFSPEC-$default_refspec}&quot;</span>
+
+<span class="nb">test</span> -z <span class="s2">&quot;$refspec&quot;</span> <span class="o">&amp;&amp;</span> <span class="nv">prefix</span><span class="o">=</span><span class="s2">&quot;refs&quot;</span>
+
+<span class="nv">GIT_DIR</span><span class="o">=</span><span class="s2">&quot;$url/.git&quot;</span>
+<span class="nb">export </span>GIT_DIR
+
+<span class="nv">force</span><span class="o">=</span>
+
+mkdir -p <span class="s2">&quot;$dir&quot;</span>
+
+<span class="k">if </span><span class="nb">test</span> -z <span class="s2">&quot;$GIT_REMOTE_TESTGIT_NO_MARKS&quot;</span>
+<span class="k">then</span>
+<span class="k">  </span><span class="nv">gitmarks</span><span class="o">=</span><span class="s2">&quot;$dir/git.marks&quot;</span>
+  <span class="nv">testgitmarks</span><span class="o">=</span><span class="s2">&quot;$dir/testgit.marks&quot;</span>
+  <span class="nb">test</span> -e <span class="s2">&quot;$gitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$gitmarks&quot;</span>
+  <span class="nb">test</span> -e <span class="s2">&quot;$testgitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$testgitmarks&quot;</span>
+<span class="k">fi</span>
+</pre></div>
+
+
+<p>Note: <code>$GIT_DIR</code> is an environment variable that is set by git before calling the helper. It refers to the <code>.git</code> directory of the repository we are cloning into, fetching into, or pushing from.</p>
+
+<p>The variable they call <code>alias</code> is what we are calling <code>remoteName</code>. <code>url</code> means the same thing. The next declaration,</p>
+
+<div class="highlight"><pre><span class="nv">dir</span><span class="o">=</span><span class="s2">&quot;$GIT_DIR/testgit/$alias&quot;</span>
+</pre></div>
+
+
+<p>defines a local directory inside <code>$GIT_DIR</code> for the given remote. All the files specific to the helper and that remote will reside in that directory. So if the remote is <code>origin</code>, then the files will be stored in <code>.git/testgit/origin</code>.</p>
+
+<p>Down below, we see the statement</p>
+
+<div class="highlight"><pre>mkdir -p <span class="s2">&quot;$dir&quot;</span>
+</pre></div>
+
+
+<p>This will make sure the local directory is created, if it doesn&rsquo;t exist already.</p>
+
+<p>Let&rsquo;s add the creation of the local directory to our Go program:</p>
+
+<div class="highlight"><pre><span class="c1">// Add &quot;path&quot; to the import list</span>
+
+<span class="nx">localdir</span> <span class="o">:=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Getenv</span><span class="p">(</span><span class="s">&quot;GIT_DIR&quot;</span><span class="p">),</span> <span class="s">&quot;go&quot;</span><span class="p">,</span> <span class="nx">remoteName</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">MkdirAll</span><span class="p">(</span><span class="nx">localdir</span><span class="p">,</span> <span class="mo">0755</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Continuing through the script, we come across the following lines</p>
+
+<div class="highlight"><pre><span class="nv">prefix</span><span class="o">=</span><span class="s2">&quot;refs/testgit/$alias&quot;</span>
+
+<span class="nv">default_refspec</span><span class="o">=</span><span class="s2">&quot;refs/heads/*:${prefix}/heads/*&quot;</span>
+
+<span class="nv">refspec</span><span class="o">=</span><span class="s2">&quot;${GIT_REMOTE_TESTGIT_REFSPEC-$default_refspec}&quot;</span>
+
+<span class="nb">test</span> -z <span class="s2">&quot;$refspec&quot;</span> <span class="o">&amp;&amp;</span> <span class="nv">prefix</span><span class="o">=</span><span class="s2">&quot;refs&quot;</span>
+</pre></div>
+
+
+<p>Let&rsquo;s talk about refs really quick.</p>
+
+<p>In git, refs are stored in <code>.git/refs</code>:</p>
+
+<pre><code>.git
+└── refs
+    ├── heads
+    │   └── master
+    ├── remotes
+    │   ├── gravy
+    │   └── origin
+    │       └── master
+    └── tags
+</code></pre>
+
+<p>In the above tree, <code>remotes/origin/master</code> contains the SHA-hash of the most recent commit in the <code>master</code> branch of the <code>origin</code> remote. <code>heads/master</code> refers to the most recent commit of your local <code>master</code> branch. A ref is like a pointer to a commit.</p>
+
+<p>A refspec allows us to map remote refs to local refs. In the above code, <code>prefix</code> is the directory where the remote refs will be held. If the remote name is origin, then the remote master branch would be determined by the ref <code>.git/refs/testgit/origin/master</code>. It basically creates a protocol-specific namespace for remote branches, like the <code>$dir</code> variable.</p>
+
+<p>The next line is the actual refspec. The line</p>
+
+<div class="highlight"><pre><span class="nv">default_refspec</span><span class="o">=</span><span class="s2">&quot;refs/heads/*:${prefix}/heads/*&quot;</span>
+</pre></div>
+
+
+<p>Expands to</p>
+
+<div class="highlight"><pre><span class="nv">default_refspec</span><span class="o">=</span><span class="s2">&quot;refs/heads/*:refs/testgit/$alias/*&quot;</span>
+</pre></div>
+
+
+<p>Which means that map the remote branches that look like <code>refs/heads/*</code> (where <code>*</code> means any text) to <code>refs/testgit/$alias/*</code> (where <code>*</code> is replaced with whatever <code>*</code> was in the first one). So <code>refs/heads/master</code> becomes <code>refs/testgit/origin/master</code>, for instance.</p>
+
+<p>Essentially, the refspec allows testgit to add a branch to the tree for itself, like this</p>
+
+<pre><code>.git
+└── refs
+    ├── heads
+    │   └── master
+    ├── remotes
+    │   └── origin
+    │       └── master
+    ├── testgit
+    │   └── origin
+    │       └── master
+    └── tags
+</code></pre>
+
+<p>The next line</p>
+
+<div class="highlight"><pre><span class="nv">refspec</span><span class="o">=</span><span class="s2">&quot;${GIT_REMOTE_TESTGIT_REFSPEC-$default_refspec}&quot;</span>
+</pre></div>
+
+
+<p>Sets <code>$refspec</code> to <code>$GIT_REMOTE_TESTGIT_REFSPEC</code>, unless it doesn&rsquo;t exist, then it becomes <code>$default_refspec</code>. This is so testgit can be tested with other refspecs. We&rsquo;ll assume it gets set to <code>$default_refspec</code>.</p>
+
+<p>Finally, the next line,</p>
+
+<div class="highlight"><pre><span class="nb">test</span> -z <span class="s2">&quot;$refspec&quot;</span> <span class="o">&amp;&amp;</span> <span class="nv">prefix</span><span class="o">=</span><span class="s2">&quot;refs&quot;</span>
+</pre></div>
+
+
+<p>Seems to set <code>$prefix</code> to <code>refs</code> if <code>$GIT_REMOTE_TESTGIT_REFSPEC</code> exists but is empty, which we&rsquo;ll assume is the case.</p>
+
+<p>We need our own refspec, so we&rsquo;ll add the line</p>
+
+<div class="highlight"><pre><span class="nx">refspec</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;refs/heads/*:refs/go/%s/*&quot;</span><span class="p">,</span> <span class="nx">remoteName</span><span class="p">)</span>
+</pre></div>
+
+
+<p>Following that code, we see</p>
+
+<div class="highlight"><pre><span class="nv">GIT_DIR</span><span class="o">=</span><span class="s2">&quot;$url/.git&quot;</span>
+<span class="nb">export </span>GIT_DIR
+</pre></div>
+
+
+<p>Another fact about <code>$GIT_DIR</code> is that if it is set in the environment, the <code>git</code> binary will use the directory in <code>$GIT_DIR</code> as its <code>.git</code> directory, instead of the local <code>.git</code>. Essentially, this command makes it so that all git commands run by the helper will run in the directory we are pushing to or fetching from.</p>
+
+<p>We&rsquo;ll translate this to</p>
+
+<div class="highlight"><pre><span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Setenv</span><span class="p">(</span><span class="s">&quot;GIT_DIR&quot;</span><span class="p">,</span> <span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span> <span class="s">&quot;.git&quot;</span><span class="p">));</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Remember, of course, that <code>$dir</code> and our variable <code>localdir</code> still refer to a subdirectory of the repository we are fetching to or pushing from.</p>
+
+<p>And the last bit of code before the main loop is</p>
+
+<div class="highlight"><pre><span class="k">if </span><span class="nb">test</span> -z <span class="s2">&quot;$GIT_REMOTE_TESTGIT_NO_MARKS&quot;</span>
+<span class="k">then</span>
+<span class="k">  </span><span class="nv">gitmarks</span><span class="o">=</span><span class="s2">&quot;$dir/git.marks&quot;</span>
+  <span class="nv">testgitmarks</span><span class="o">=</span><span class="s2">&quot;$dir/testgit.marks&quot;</span>
+  <span class="nb">test</span> -e <span class="s2">&quot;$gitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$gitmarks&quot;</span>
+  <span class="nb">test</span> -e <span class="s2">&quot;$testgitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$testgitmarks&quot;</span>
+<span class="k">fi</span>
+</pre></div>
+
+
+<p>The contents of the if statement will be executed if <code>$GIT_REMOTE_TESTGIT_NO_MARKS</code> isn&rsquo;t set, which we&rsquo;ll assume is the case.</p>
+
+<p>These marks files are used by <code>git fast-export</code> and <code>git fast-import</code> to record information about refs and blobs being transferred. It&rsquo;s important that these marks are kept the same between multiple invocations of the helper, so they&rsquo;re being stored in the localdir.</p>
+
+<p>Here, <code>$gitmarks</code> refers to the marks for our local repository that git writes, while <code>$testgitmarks</code> stores the marks for the remote one that the handler writes.</p>
+
+<p>The two following lines appear equivalent to <code>touch</code> invocations, where if the marks files don&rsquo;t exist, they are created empty.</p>
+
+<div class="highlight"><pre><span class="nb">test</span> -e <span class="s2">&quot;$gitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$gitmarks&quot;</span>
+<span class="nb">test</span> -e <span class="s2">&quot;$testgitmarks&quot;</span> <span class="o">||</span> &gt;<span class="s2">&quot;$testgitmarks&quot;</span>
+</pre></div>
+
+
+<p>We&rsquo;ll need these files in our own program, so let&rsquo;s start by writing a Touch function.</p>
+
+<div class="highlight"><pre><span class="c1">// Create path as an empty file if it doesn&#39;t exist, otherwise do nothing.</span>
+<span class="c1">// This works by opening a file in exclusive mode; if it already exists,</span>
+<span class="c1">// an error will be returned rather than truncating it.</span>
+<span class="kd">func</span> <span class="nx">Touch</span><span class="p">(</span><span class="nx">path</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+  <span class="nx">file</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">OpenFile</span><span class="p">(</span><span class="nx">path</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nx">O_WRONLY</span><span class="p">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_CREATE</span><span class="p">|</span><span class="nx">os</span><span class="p">.</span><span class="nx">O_EXCL</span><span class="p">,</span> <span class="mo">0666</span><span class="p">)</span>
+  <span class="k">if</span> <span class="nx">os</span><span class="p">.</span><span class="nx">IsExist</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kc">nil</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">err</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="nx">file</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Now we can create the marks files.</p>
+
+<div class="highlight"><pre><span class="nx">gitmarks</span> <span class="o">:=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">localdir</span><span class="p">,</span> <span class="s">&quot;git.marks&quot;</span><span class="p">)</span>
+<span class="nx">gomarks</span> <span class="o">:=</span> <span class="nx">path</span><span class="p">.</span><span class="nx">Join</span><span class="p">(</span><span class="nx">localdir</span><span class="p">,</span> <span class="s">&quot;go.marks&quot;</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">Touch</span><span class="p">(</span><span class="nx">gitmarks</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">Touch</span><span class="p">(</span><span class="nx">gomarks</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>However, one thing I&rsquo;ve come across is that if the helper fails for some reason, the marks files can be left in an invalid state. To guard against this, we can save the original contents of the files, and then rewrite them if the <code>Main()</code> function returns an error.</p>
+
+<div class="highlight"><pre><span class="c1">// add &quot;io/ioutil&quot; to imports</span>
+
+<span class="nx">originalGitmarks</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">gitmarks</span><span class="p">)</span>
+<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="nx">originalGomarks</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">gomarks</span><span class="p">)</span>
+<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+
+<span class="k">defer</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="nx">er</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="nx">ioutil</span><span class="p">.</span><span class="nx">WriteFile</span><span class="p">(</span><span class="nx">gitmarks</span><span class="p">,</span> <span class="nx">originalGitmarks</span><span class="p">,</span> <span class="mo">0666</span><span class="p">)</span>
+    <span class="nx">ioutil</span><span class="p">.</span><span class="nx">WriteFile</span><span class="p">(</span><span class="nx">gomarks</span><span class="p">,</span> <span class="nx">originalGomarks</span><span class="p">,</span> <span class="mo">0666</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}()</span>
+</pre></div>
+
+
+<p>We can finally begin on the central command loop.</p>
+
+<p>Commands are passed to helper via stdin, where each command is a string terminated by a newline. The helper responds to the commands via stdout; stderr is piped to the end user.</p>
+
+<p>Let&rsquo;s make our own loop.</p>
+
+<div class="highlight"><pre><span class="c1">// Add &quot;bufio&quot; to import list.</span>
+
+<span class="nx">stdinReader</span> <span class="o">:=</span> <span class="nx">bufio</span><span class="p">.</span><span class="nx">NewReader</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stdin</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="p">{</span>
+  <span class="c1">// Note that command will include the trailing newline.</span>
+  <span class="nx">command</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">stdinReader</span><span class="p">.</span><span class="nx">ReadString</span><span class="p">(</span><span class="sc">&#39;\n&#39;</span><span class="p">)</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">err</span>
+  <span class="p">}</span>
+
+  <span class="k">switch</span> <span class="p">{</span>
+  <span class="k">case</span> <span class="nx">command</span> <span class="o">==</span> <span class="s">&quot;capabilities\n&quot;</span><span class="p">:</span>
+    <span class="c1">// ...</span>
+  <span class="k">case</span> <span class="nx">command</span> <span class="o">==</span> <span class="s">&quot;\n&quot;</span><span class="p">:</span>
+    <span class="k">return</span> <span class="kc">nil</span>
+  <span class="k">default</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;Received unknown command %q&quot;</span><span class="p">,</span> <span class="nx">command</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<h2>The <code>capabilities</code> command</h2>
+
+<p>The first command to implement is <code>capabilities</code>. The helper is expected to print what commands and other capabilities it supports on separate lines, terminated by an empty line.</p>
+
+<div class="highlight"><pre><span class="nb">echo</span> <span class="s1">&#39;import&#39;</span>
+<span class="nb">echo</span> <span class="s1">&#39;export&#39;</span>
+<span class="nb">test</span> -n <span class="s2">&quot;$refspec&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&quot;refspec $refspec&quot;</span>
+<span class="k">if </span><span class="nb">test</span> -n <span class="s2">&quot;$gitmarks&quot;</span>
+<span class="k">then</span>
+<span class="k">  </span><span class="nb">echo</span> <span class="s2">&quot;*import-marks $gitmarks&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;*export-marks $gitmarks&quot;</span>
+<span class="k">fi</span>
+<span class="nb">test</span> -n <span class="s2">&quot;$GIT_REMOTE_TESTGIT_SIGNED_TAGS&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&quot;signed-tags&quot;</span>
+<span class="nb">test</span> -n <span class="s2">&quot;$GIT_REMOTE_TESTGIT_NO_PRIVATE_UPDATE&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&quot;no-private-update&quot;</span>
+<span class="nb">echo</span> <span class="s1">&#39;option&#39;</span>
+<span class="nb">echo</span>
+</pre></div>
+
+
+<p>This list of capabilities states that this helper supports the <code>import</code>, <code>export</code> and <code>option</code> commands. The <code>option</code> command allows git to change the verbosity and such of our helper.</p>
+
+<p><code>signed-tags</code> means that when git creates a fast-export stream for the <code>export</code> command, it will pass <code>--signed-tags=verbatim</code> to <code>git-fast-export</code>.</p>
+
+<p><code>no-private-update</code> instructs git to not update a private ref when it&rsquo;s been successfully pushed. I&rsquo;ve never seemed to need this feature.</p>
+
+<p><code>refspec $refspec</code> tells git what refspec we want to use.</p>
+
+<p>The <code>*import-marks $gitmarks</code> and <code>*export-marks $gitmarks</code> means git should save the marks it generates to the <code>gitmarks</code> files. The <code>*</code> means that git cannot ignore these lines if they are unsupported, and must fail. This is because the helper depends on the marks files being saved.</p>
+
+<p>Let&rsquo;s ignore <code>signed-tags</code>, <code>no-private-update</code> and <code>option</code>, as they are provided in git-remote-testgit for completeness of testing, and we don&rsquo;t need them for this example. We can implement the above simply as</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="nx">command</span> <span class="o">==</span> <span class="s">&quot;capabilities\n&quot;</span><span class="p">:</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;import\n&quot;</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;export\n&quot;</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;refspec %s\n&quot;</span><span class="p">,</span> <span class="nx">refspec</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;*import-marks %s\n&quot;</span><span class="p">,</span> <span class="nx">gitmarks</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;*export-marks %s\n&quot;</span><span class="p">,</span> <span class="nx">gitmarks</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<h2>The <code>list</code> command</h2>
+
+<p>The next command is <code>list</code>. This isn&rsquo;t provided in the capabilities list because it must always be supported by the helper.</p>
+
+<p>When the helper receives a <code>list</code> command, it should print out the refs of the remote repository as a series of lines of the format <code>$objectname $refname</code>, followed by an empty line. <code>$refname</code> is the name of the ref, while <code>$objectname</code> is what the ref points to. <code>$objectname</code> can be a commit hash, refer to another ref by name with <code>@$refname</code>, or be <code>?</code>, which means the ref&rsquo;s value was unable to be acquired.</p>
+
+<p>git-remote-testgit&rsquo;s implementation is the following.</p>
+
+<div class="highlight"><pre>git <span class="k">for</span>-each-ref --format<span class="o">=</span><span class="s1">&#39;? %(refname)&#39;</span> <span class="s1">&#39;refs/heads/&#39;</span>
+<span class="nv">head</span><span class="o">=</span><span class="k">$(</span>git symbolic-ref HEAD<span class="k">)</span>
+<span class="nb">echo</span> <span class="s2">&quot;@$head HEAD&quot;</span>
+<span class="nb">echo</span>
+</pre></div>
+
+
+<p>Remembering that <code>$GIT_DIR</code> causes <code>git for-each-ref</code> to run in the remote repository, this will print a line <code>? $refname</code> for every branch in the remote repository, as well as <code>@$head HEAD</code>, where <code>$head</code> is the name of the ref that the HEAD of the repository refers to. </p>
+
+<p>In an ordinary repository with two branches, master and development, the output of this might look like</p>
+
+<pre><code>? refs/heads/master
+? refs/heads/development
+@refs/heads/master HEAD
+&lt;blank&gt;
+</code></pre>
+
+<p>Now let&rsquo;s write it ourselves. Let&rsquo;s write a function <code>GitListRefs()</code>, because we&rsquo;ll need it again later.</p>
+
+<div class="highlight"><pre><span class="c1">// Add &quot;os/exec&quot; and &quot;bytes&quot; to the import list.</span>
+
+<span class="c1">// Returns a map of refnames to objectnames.</span>
+<span class="kd">func</span> <span class="nx">GitListRefs</span><span class="p">()</span> <span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">out</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span>
+    <span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="s">&quot;for-each-ref&quot;</span><span class="p">,</span> <span class="s">&quot;--format=%(objectname) %(refname)&quot;</span><span class="p">,</span> <span class="s">&quot;refs/heads/&quot;</span><span class="p">,</span>
+  <span class="p">).</span><span class="nx">Output</span><span class="p">()</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">err</span>
+  <span class="p">}</span>
+
+  <span class="nx">lines</span> <span class="o">:=</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">out</span><span class="p">,</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">{</span><span class="sc">&#39;\n&#39;</span><span class="p">})</span>
+  <span class="nx">refs</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">lines</span><span class="p">))</span>
+
+  <span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">line</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lines</span> <span class="p">{</span>
+    <span class="nx">fields</span> <span class="o">:=</span> <span class="nx">bytes</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">{</span><span class="sc">&#39; &#39;</span><span class="p">})</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">fields</span><span class="p">)</span> <span class="p">&lt;</span> <span class="mi">2</span> <span class="p">{</span>
+      <span class="k">break</span>
+    <span class="p">}</span>
+
+    <span class="nx">refs</span><span class="p">[</span><span class="nb">string</span><span class="p">(</span><span class="nx">fields</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nx">fields</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="nx">refs</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>Now we&rsquo;ll write <code>GitSymbolicRef()</code>.</p>
+
+<div class="highlight"><pre><span class="kd">func</span> <span class="nx">GitSymbolicRef</span><span class="p">(</span><span class="nx">name</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">out</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span><span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="s">&quot;symbolic-ref&quot;</span><span class="p">,</span> <span class="nx">name</span><span class="p">).</span><span class="nx">Output</span><span class="p">()</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span>
+      <span class="s">&quot;GitSymbolicRef: git symbolic-ref %s: %v&quot;</span><span class="p">,</span> <span class="nx">name</span><span class="p">,</span> <span class="nx">out</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="nb">string</span><span class="p">(</span><span class="nx">bytes</span><span class="p">.</span><span class="nx">TrimSpace</span><span class="p">(</span><span class="nx">out</span><span class="p">)),</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</pre></div>
+
+
+<p>We can implement the <code>list</code> command like so.</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="nx">command</span> <span class="o">==</span> <span class="s">&quot;list\n&quot;</span><span class="p">:</span>
+  <span class="nx">refs</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">GitListRefs</span><span class="p">()</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command list: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">head</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">GitSymbolicRef</span><span class="p">(</span><span class="s">&quot;HEAD&quot;</span><span class="p">)</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command list: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="k">for</span> <span class="nx">refname</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">refs</span> <span class="p">{</span>
+    <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;? %s\n&quot;</span><span class="p">,</span> <span class="nx">refname</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;@%s HEAD\n&quot;</span><span class="p">,</span> <span class="nx">head</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<h2>The <code>import</code> command</h2>
+
+<p>Next up is the <code>import</code> command, which git uses when trying to fetch or clone. This command actually comes in a batch; it is sent as a series of lines <code>import $refname</code> followed by a blank line. When git sends this command to the helper, it executes the <code>git fast-import</code> binary, and pipes the helper&rsquo;s stdout into its stdin. In other words, the helper is expected to return a git fast-export stream on stdout.</p>
+
+<p>Let&rsquo;s look at git-remote-testgit&rsquo;s implementation.</p>
+
+<div class="highlight"><pre><span class="c"># read all import lines</span>
+<span class="k">while </span><span class="nb">true</span>
+<span class="k">do</span>
+<span class="k">  </span><span class="nv">ref</span><span class="o">=</span><span class="s2">&quot;${line#* }&quot;</span>
+  <span class="nv">refs</span><span class="o">=</span><span class="s2">&quot;$refs $ref&quot;</span>
+  <span class="nb">read </span>line
+  <span class="nb">test</span> <span class="s2">&quot;${line%% *}&quot;</span> !<span class="o">=</span> <span class="s2">&quot;import&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">break</span>
+<span class="k">done</span>
+
+<span class="k">if </span><span class="nb">test</span> -n <span class="s2">&quot;$gitmarks&quot;</span>
+<span class="k">then</span>
+<span class="k">  </span><span class="nb">echo</span> <span class="s2">&quot;feature import-marks=$gitmarks&quot;</span>
+  <span class="nb">echo</span> <span class="s2">&quot;feature export-marks=$gitmarks&quot;</span>
+<span class="k">fi</span>
+
+<span class="k">if </span><span class="nb">test</span> -n <span class="s2">&quot;$GIT_REMOTE_TESTGIT_FAILURE&quot;</span>
+<span class="k">then</span>
+<span class="k">  </span><span class="nb">echo</span> <span class="s2">&quot;feature done&quot;</span>
+  <span class="nb">exit </span>1
+<span class="k">fi</span>
+
+<span class="nb">echo</span> <span class="s2">&quot;feature done&quot;</span>
+git fast-export <span class="se">\</span>
+    <span class="k">${</span><span class="nv">testgitmarks</span><span class="p">:+</span><span class="s2">&quot;--import-marks=$testgitmarks&quot;</span><span class="k">}</span> <span class="se">\</span>
+  <span class="k">${</span><span class="nv">testgitmarks</span><span class="p">:+</span><span class="s2">&quot;--export-marks=$testgitmarks&quot;</span><span class="k">}</span> <span class="se">\</span>
+  <span class="nv">$refs</span> |
+sed -e <span class="s2">&quot;s#refs/heads/#${prefix}/heads/#g&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;done&quot;</span>
+</pre></div>
+
+
+<p>The loop at the top, true to the comment, accumulates all the <code>import $refname</code> commands into a single variable <code>$refs</code>, which is a list of the refs separated by spaces.</p>
+
+<p>Following that, if the script is using a gitmarks file (which we&rsquo;re assuming it is), it prints out <code>feature import-marks=$gitmarks</code> and <code>feature export-marks=$gitmarks</code>. This tells git to pass <code>--import-marks=$gitmarks</code> and <code>--export-marks=$gitmarks</code> to git fast-import.</p>
+
+<p>The next branch fails the helper if <code>$GIT_REMOTE_TESTGIT_FAILURE</code> is set for testing purposes.</p>
+
+<p>After that, <code>feature done</code> is printed, signalling that the export stream follows.</p>
+
+<p>Finally, git fast-export is called in the remote repository, setting the marks files to the remote marks, <code>$testgitmarks</code>, and then passing the list of refs to export.</p>
+
+<p>The output of git-fast-export is piped through a sed script that maps <code>refs/heads/</code> to <code>refs/testgit/$alias/heads/</code>. The refspec that we passed to git will take care of this mapping when we export.</p>
+
+<p>After the export stream, <code>done</code> is printed.</p>
+
+<p>Let&rsquo;s try this in go.</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="nx">strings</span><span class="p">.</span><span class="nx">HasPrefix</span><span class="p">(</span><span class="nx">command</span><span class="p">,</span> <span class="s">&quot;import &quot;</span><span class="p">):</span>
+  <span class="nx">refs</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+  <span class="k">for</span> <span class="p">{</span>
+    <span class="c1">// Have to make sure to trim the trailing newline.</span>
+    <span class="nx">ref</span> <span class="o">:=</span> <span class="nx">strings</span><span class="p">.</span><span class="nx">TrimSpace</span><span class="p">(</span><span class="nx">strings</span><span class="p">.</span><span class="nx">TrimPrefix</span><span class="p">(</span><span class="nx">command</span><span class="p">,</span> <span class="s">&quot;import &quot;</span><span class="p">))</span>
+
+    <span class="nx">refs</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">refs</span><span class="p">,</span> <span class="nx">ref</span><span class="p">)</span>
+    <span class="nx">command</span><span class="p">,</span> <span class="nx">err</span> <span class="p">=</span> <span class="nx">stdinReader</span><span class="p">.</span><span class="nx">ReadString</span><span class="p">(</span><span class="sc">&#39;\n&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="nx">err</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">!</span><span class="nx">strings</span><span class="p">.</span><span class="nx">HasPrefix</span><span class="p">(</span><span class="nx">command</span><span class="p">,</span> <span class="s">&quot;import &quot;</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">break</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;feature import-marks=%s\n&quot;</span><span class="p">,</span> <span class="nx">gitmarks</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;feature export-marks=%s\n&quot;</span><span class="p">,</span> <span class="nx">gitmarks</span><span class="p">)</span>
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;feature done\n&quot;</span><span class="p">)</span>
+
+  <span class="nx">args</span> <span class="o">:=</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span>
+    <span class="s">&quot;fast-export&quot;</span><span class="p">,</span>
+    <span class="s">&quot;--import-marks&quot;</span><span class="p">,</span> <span class="nx">gomarks</span><span class="p">,</span>
+    <span class="s">&quot;--export-marks&quot;</span><span class="p">,</span> <span class="nx">gomarks</span><span class="p">,</span>
+    <span class="s">&quot;--refspec&quot;</span><span class="p">,</span> <span class="nx">refspec</span><span class="p">}</span>
+  <span class="nx">args</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">args</span><span class="p">,</span> <span class="nx">refs</span><span class="o">...</span><span class="p">)</span>
+
+  <span class="nx">cmd</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span><span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="nx">args</span><span class="o">...</span><span class="p">)</span>
+  <span class="nx">cmd</span><span class="p">.</span><span class="nx">Stderr</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span>
+  <span class="nx">cmd</span><span class="p">.</span><span class="nx">Stdout</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stdout</span>
+
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">Run</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command import: git fast-export: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;done\n&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<p>That ended up being pretty easy.</p>
+
+<h2>The <code>export</code> command</h2>
+
+<p>Next up is the <code>export</code> command. When we finish this one, we&rsquo;re done.</p>
+
+<p>git calls this when we are pushing to the remote repository. After receiving the command on stdin, git follows it with a stream produced by <code>git fast-export</code>, which we can <code>git fast-import</code> into the remote repository.</p>
+
+<div class="highlight"><pre><span class="k">if </span><span class="nb">test</span> -n <span class="s2">&quot;$GIT_REMOTE_TESTGIT_FAILURE&quot;</span>
+<span class="k">then</span>
+  <span class="c"># consume input so fast-export doesn&#39;t get SIGPIPE;</span>
+  <span class="c"># git would also notice that case, but we want</span>
+  <span class="c"># to make sure we are exercising the later</span>
+  <span class="c"># error checks</span>
+  <span class="k">while </span><span class="nb">read </span>line; <span class="k">do</span>
+<span class="k">    </span><span class="nb">test</span> <span class="s2">&quot;done&quot;</span> <span class="o">=</span> <span class="s2">&quot;$line&quot;</span> <span class="o">&amp;&amp;</span> <span class="nb">break</span>
+<span class="nb">  </span><span class="k">done</span>
+<span class="k">  </span><span class="nb">exit </span>1
+<span class="k">fi</span>
+
+<span class="nv">before</span><span class="o">=</span><span class="k">$(</span>git <span class="k">for</span>-each-ref --format<span class="o">=</span><span class="s1">&#39; %(refname) %(objectname) &#39;</span><span class="k">)</span>
+
+git fast-import <span class="se">\</span>
+  <span class="k">${</span><span class="nv">force</span><span class="p">:+--force</span><span class="k">}</span> <span class="se">\</span>
+  <span class="k">${</span><span class="nv">testgitmarks</span><span class="p">:+</span><span class="s2">&quot;--import-marks=$testgitmarks&quot;</span><span class="k">}</span> <span class="se">\</span>
+  <span class="k">${</span><span class="nv">testgitmarks</span><span class="p">:+</span><span class="s2">&quot;--export-marks=$testgitmarks&quot;</span><span class="k">}</span> <span class="se">\</span>
+  --quiet
+
+<span class="c"># figure out which refs were updated</span>
+git <span class="k">for</span>-each-ref --format<span class="o">=</span><span class="s1">&#39;%(refname) %(objectname)&#39;</span> |
+<span class="k">while </span><span class="nb">read </span>ref a
+<span class="k">do</span>
+<span class="k">  case</span> <span class="s2">&quot;$before&quot;</span> in
+  *<span class="s2">&quot; $ref $a &quot;</span>*<span class="o">)</span>
+    <span class="k">continue</span> ;; <span class="c"># unchanged</span>
+  <span class="k">esac</span>
+<span class="k">  if </span><span class="nb">test</span> -z <span class="s2">&quot;$GIT_REMOTE_TESTGIT_PUSH_ERROR&quot;</span>
+  <span class="k">then</span>
+<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;ok $ref&quot;</span>
+  <span class="k">else</span>
+<span class="k">    </span><span class="nb">echo</span> <span class="s2">&quot;error $ref $GIT_REMOTE_TESTGIT_PUSH_ERROR&quot;</span>
+  <span class="k">fi</span>
+<span class="k">done</span>
+
+<span class="nb">echo</span>
+</pre></div>
+
+
+<p>The first if statement is, again, just for testing purposes.</p>
+
+<p>The next line is more interesting. It creates a space separated list of <code>$refname $objectname</code> pairs of the refs which we will use to determine which refs were updated in the import.</p>
+
+<p>The next command is rather self explanatory. <code>git fast-import</code> is run on the stream we receive on stdin, passing <code>--force</code> if specified, <code>--quiet</code>, and the remote marks files.</p>
+
+<p>Next we call <code>git for-each-ref</code> again to see what refs have changed. For every ref this command returns, we check to see if the <code>$refname $objectname</code> pair is in the <code>$before</code> list. If it is, nothing changed and we continue onto the next. If the ref isn&rsquo;t in the list, however, we print <code>ok $refname</code> to signify to git that the ref updated successfully. You can also print <code>error $refname $message</code> to tell git that an import failed.</p>
+
+<p>Finally, we print a blank line to show that we are done importing.</p>
+
+<p>Now we can write it ourselves. We can use the <code>GitListRefs()</code> function we defined earlier.</p>
+
+<div class="highlight"><pre><span class="k">case</span> <span class="nx">command</span> <span class="o">==</span> <span class="s">&quot;export\n&quot;</span><span class="p">:</span>
+  <span class="nx">beforeRefs</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">GitListRefs</span><span class="p">()</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command export: collecting before refs: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">cmd</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span><span class="s">&quot;git&quot;</span><span class="p">,</span> <span class="s">&quot;fast-import&quot;</span><span class="p">,</span> <span class="s">&quot;--quiet&quot;</span><span class="p">,</span>
+    <span class="s">&quot;--import-marks=&quot;</span><span class="o">+</span><span class="nx">gomarks</span><span class="p">,</span>
+    <span class="s">&quot;--export-marks=&quot;</span><span class="o">+</span><span class="nx">gomarks</span><span class="p">)</span>
+
+  <span class="nx">cmd</span><span class="p">.</span><span class="nx">Stderr</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span>
+  <span class="nx">cmd</span><span class="p">.</span><span class="nx">Stdin</span> <span class="p">=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Stdin</span>
+
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">Run</span><span class="p">();</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command export: git fast-import: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nx">afterRefs</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">GitListRefs</span><span class="p">()</span>
+  <span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Errorf</span><span class="p">(</span><span class="s">&quot;command export: collecting after refs: %v&quot;</span><span class="p">,</span> <span class="nx">err</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="k">for</span> <span class="nx">refname</span><span class="p">,</span> <span class="nx">objectname</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">afterRefs</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="nx">beforeRefs</span><span class="p">[</span><span class="nx">refname</span><span class="p">]</span> <span class="o">!=</span> <span class="nx">objectname</span> <span class="p">{</span>
+      <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;ok %s\n&quot;</span><span class="p">,</span> <span class="nx">refname</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;\n&quot;</span><span class="p">)</span>
+</pre></div>
+
+
+<h2>Trying it out</h2>
+
+<p>Run <code>go install</code>, which should build and install <code>git-remote-go</code> to <code>go/bin</code>.</p>
+
+<p>You can try the following; first we create two empty git repositories, then make a commit in testlocal, and push it to testremote using our new helper.</p>
+
+<pre><code>$ cd $HOME
+$ git init testremote
+Initialized empty Git repository in $HOME/testremote/.git/
+$ git init testlocal
+Initialized empty Git repository in $HOME/testlocal/.git/
+$ cd testlocal
+$ echo 'Hello, world!' &gt;hello.txt
+$ git add hello.txt
+$ git commit -m &quot;First commit.&quot;
+[master (root-commit) 50d3a83] First commit.
+ 1 file changed, 1 insertion(+)
+ create mode 100644 hello.txt
+$ git remote add origin go::$HOME/testremote
+$ git push --all origin
+To go::$HOME/testremote
+ * [new branch]      master -&gt; master
+$ cd ../testremote
+$ git checkout master
+$ ls
+hello.txt
+$ cat hello.txt
+Hello, world!
+</code></pre>
+
+<h2>Uses for git remote helpers</h2>
+
+<p>Git remote helpers have been used to implement interfaces to other source control (like <a href="https://github.com/felipec/git-remote-hg">felipec/git-remote-hg</a>, push code into CouchDBs (<a href="https://github.com/peritus/git-remote-couch">peritus/git-remote-couch</a>), among others. You could probably think of more.</p>
+
+<p>I wrote a git remote helper for my original motivation, <a href="https://github.com/alecrn/git-remote-grave">git-remote-grave</a>. You can use it to push and fetch from encrypted archives on your file system or over HTTP/HTTPS.</p>
+
+<pre><code>$ git remote add usb grave::/media/usb/backup.grave
+$ git push --all backup
+</code></pre>
+
+<p>Using a <a href="/faq.html#What-is-the-compression-method">couple compression tricks</a>, the archives are typically 22% the size of the original repository.</p>
+
+<p>In fact, I made this site, <a href="/">filegrave.com</a>, as a convenient place to store your confidential data. Immutable, anonymous repositories are free for a limited time, if you want to try it out:</p>
+
+<pre><code>$ git remote add immutable-backup grave::https://filegrave.com/anon/1234
+$ git push --all backup
+$ git fetch
+</code></pre>
+
+<p>If you&rsquo;d like permanent, private, encrypted repositories you can push and fetch from, see <a href="/">here</a> for more information.</p>
+
+  </article>
+</body>
+</html>
