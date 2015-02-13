@@ -1,0 +1,152 @@
+
+/*@media (min-width: 781px) {
+  article {
+    width: 500px;
+    text-align: justify;
+    margin: auto;
+    font-size: 16px;
+  }
+
+  pre {
+    width: 620px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 781px) and (min-width: 508px) {
+  article {
+    width: 500px;
+    text-align: justify;
+    margin: auto;
+    font-size: 16.2px;
+  }
+
+  pre {
+    right: 0;
+    font-size: 11px;
+  }
+}*/
+
+@media (min-width: 508px) {
+  article {
+    width: 500px;
+    text-align: justify;
+    margin: auto;
+    font-size: 16.2px;
+  }
+
+  pre {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 508px) {
+  article {
+    text-align: justify;
+    font-size: 16px;
+  }
+
+  pre {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  article {
+    font-size: 10px;
+  }
+}
+
+body {
+  font-family: "Times New Roman", serif;
+  line-height: 1.5;
+  color: #222;
+}
+
+article h2 {
+  line-height:    1.1;
+  padding-top:    10px;
+  padding-bottom: 10px;
+  border-bottom:  1px solid black;
+  margin:         0;
+}
+
+p code {
+  background-color: #eee;
+  white-space: pre-wrap;
+  padding: 1px 5px; 
+  font-size: 78%;
+}
+
+code {
+  font-family: "Consolas", "Menlo", "Monaco", "Lucida Console", "Liberation Mono", "DejaVu Sans Mono", "Bitstream Vera Sans Mono", "Courier New", monospace, sans-serif;
+}
+
+pre {
+  background-color: #111;
+  color:            white;
+  padding:          10px;
+  overflow:         auto;
+}
+
+article h2 {
+  font-size: 120%;
+}
+
+article h3 {
+}
+
+a {
+  text-decoration: none;
+  color: #066c85;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:visited {
+  color: #466ca4;
+}
+
+nav {
+  width: 500px;
+  margin: auto;
+  border-bottom: 1px solid black;
+  line-height: 20px;
+}
+
+nav ul {
+  padding: 0;
+}
+
+nav ul li {
+  list-style-type: none;
+  display: inline-block;
+  margin-left: 10px;
+}
+
+nav ul li a,
+nav ul li a:visited {
+  padding-left: 10px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #000;
+}
+
+nav ul li:before {
+  content: '\2022';
+}
+
+nav ul li:first-child {
+  margin-left: 0px;
+}
+
+nav ul li:first-child a {
+  padding-left: 0;
+}
+
+nav ul li:first-child:before {
+  content: none;
+}
+

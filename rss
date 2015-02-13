@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Rovaughn</title>
+  <description>Rovaughn's blog</description>
+  <link>http://rovaughn.com/</link>
+  <lastBuildDate>Thu, 12 Feb 2015 18:06:48 -0700</lastBuildDate>
+  <pubDate>Thu, 12 Feb 2015 18:07:06 -0700</pubDate>
+  <item>
+    <title>How to Write a New Git Protcol</title>
+    <link>http://rovaughn.com/2015-2-9.html</link>
+    <pubDate>Thu, 12 Feb 2015 18:07:06 -0700</pubDate>
+  </item>
+</channel>
+</rss>
