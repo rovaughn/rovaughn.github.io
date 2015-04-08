@@ -1,0 +1,117 @@
+
+body {
+  background-color: black;
+  color:            white;
+  font-family:      sans-serif
+}
+
+.slide {
+  margin:  auto;
+  font-size: 30px;
+  padding: 10px;
+}
+
+.title.slide {
+  text-align: center;
+}
+
+.slide h1 {
+  font-size: 48px;
+}
+
+.slide h2 {
+  font-size: 36px;
+}
+
+.slide pre, .slide code {
+  font-size: 15px;
+}
+
+code input {
+  width: 30px;
+}
+
+.side-by-side td {
+  /*border-left: 1px solid white;*/
+  vertical-align: middle;
+  padding: 10px;
+}
+
+.side-by-side code {
+  display: block;
+}
+
+.side-by-side td:first-child {
+  border-left: none;
+}
+
+.diagram table {
+  margin: auto;
+}
+
+.diagram td {
+  text-align: center;
+}
+
+.chatroom {
+  position: relative;
+  height: 250px;
+  width: 600px;
+}
+
+.chatroom .leftpane {
+  position: absolute;
+  width: 200px;
+  height: 250;
+}
+
+.chatroom .leftpane ul {
+  padding: 0;
+  margin: 0;
+}
+
+.chatroom .leftpane ul li {
+  list-style-type: none;
+  outline: 1px solid white;
+  padding: 10px;
+  margin-bottom: 1px;
+}
+
+.chatroom .rightpane {
+  position: absolute;
+  left: 200px;
+  width: 400px;
+  height: 200px;
+  overflow-y: scroll;
+}
+
+.leftpane .selected {
+  font-weight: bold;
+}
+
+.leftpane .unsent::after {
+  content: "*";
+}
+
+.rightpane ul {
+  padding: 0px 10px;
+  margin: 0;
+}
+
+.rightpane ul li {
+  list-style-type: none;
+  display: block;
+}
+
+.you {
+  text-align: right;
+}
+
+.chatroom .editor {
+  position: absolute;
+  left: 200px;
+  top: 200px;
+  width: 400px;
+  height: 50px;
+}
+
