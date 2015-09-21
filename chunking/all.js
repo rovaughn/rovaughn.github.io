@@ -7,7 +7,7 @@ var _tag = require('./tag');
 
 var _tag2 = _interopRequireDefault(_tag);
 
-var exercises = ["if n == 0:\n" + "\treturn 'zero'", "if n == 1:\n" + "\treturn 'one'", "if n == 2:\n" + "\treturn 'two'\n" + "elif n == 3:\n" + "\treturn 'three'", "if n == 4:\n" + "\treturn 'four'\n" + "elif n == 5:\n" + "\treturn 'five'\n" + "elif n == 6:\n" + "\treturn 'six'", "if n == 1:\n" + "\treturn 'ten'", "if n == 7:\n" + "\treturn 'seventy'\n" + "elif n == 8:\n" + "\treturn 'eighty'", "while n > 0:\n" + "\tn, digit = n // 10, n % 10", "list = []", "list.append('one')", "list = []", "list.append(name_of_integer(1))", "list = []", "list.append(name_of_integer(n))", "def name_of_digit(n):\n" + "\tif n == 0:\n" + "\t\treturn 'zero'\n" + "\telif n == 1:\n" + "\t\treturn 'one'", "n, d = tuple", "name_of_fraction((0, 100))", "return name_of_integer(n) + ' tenth'", "return name_of_integer(n) + ' one hundredth'", "return name_of_integer(n) + ' one one thousandth'", "assert name_of_digit(0) == 'zero'", "assert name_of_digit(1) == 'one'", "assert name_of_digit(2) == 'two'", "assert name_of_digit(3) == 'three'", "assert name_of_digit(4) == 'four'", "assert name_of_digit(5) == 'five'", "assert name_of_digit(6) == 'six'", "assert name_of_digit(7) == 'seven'", "assert name_of_digit(8) == 'eight'", "assert name_of_digit(9) == 'nine'", "assert name_of_tens(1) == 'ten'", "assert name_of_tens(2) == 'twenty'", "assert name_of_tens(3) == 'thirty'", "assert name_of_tens(4) == 'forty'", "assert name_of_tens(5) == 'fifty'", "assert name_of_tens(6) == 'sixty'", "assert name_of_tens(7) == 'seventy'", "assert name_of_tens(8) == 'eighty'", "assert name_of_tens(9) == 'ninety'", "assert name_of_fraction((1, 10)) == 'one tenth'", "assert name_of_fraction((2, 100)) == 'two one hundredths'", "assert name_of_fraction((3, 1000)) == 'three one hundredths'", "assert name_of_decimal(98, (7, 10)) == 'ninety eight and seven tenths'", "assert name_of_decimal(98, (0, 10)) == 'ninety eight'", "assert name_of_decimal(0, (7, 10)) == 'seven tenths'", "assert name_of_integer(9) == 'nine'", "assert name_of_integer(2015) == 'two thousand fifteen'", "assert name_in_dollars(0, 7) == 'seven cents'", "assert name_in_dollars(1, 0) == 'one dollar'", "assert name_in_dollars(0, 1) == 'one cent'", "assert name_in_dollars(2, 3) == 'two dollars and three cents'", "assert name_of_number('1') == 'one'", "assert name_of_number('10') == 'ten'", "assert name_of_number('123') == 'one hundred twenty three'", "assert name_of_number('12.5') == 'twelve and five tenths'", "assert name_of_number('$3') == 'three dollars'", "assert name_of_number('$4.50') == 'four dollars and fifty cents'"];
+var exercises = ["if n == 0:\n" + "    return 'zero'", "if n == 1:\n" + "    return 'one'", "if n == 2:\n" + "    return 'two'\n" + "elif n == 3:\n" + "    return 'three'", "if n == 4:\n" + "    return 'four'\n" + "elif n == 5:\n" + "    return 'five'\n" + "elif n == 6:\n" + "    return 'six'", "if n == 1:\n" + "    return 'ten'", "if n == 7:\n" + "    return 'seventy'\n" + "elif n == 8:\n" + "    return 'eighty'", "while n > 0:\n" + "    n, digit = n // 10, n % 10", "list = []", "list.append('one')", "list = []", "list.append(name_of_integer(1))", "list = []", "list.append(name_of_integer(n))", "def name_of_digit(n):\n" + "    if n == 0:\n" + "        return 'zero'\n" + "    elif n == 1:\n" + "        return 'one'", "n, d = tuple", "name_of_fraction((0, 100))", "return name_of_integer(n) + ' tenth'", "return name_of_integer(n) + ' one hundredth'", "return name_of_integer(n) + ' one one thousandth'", "assert name_of_digit(0) == 'zero'", "assert name_of_digit(1) == 'one'", "assert name_of_digit(2) == 'two'", "assert name_of_digit(3) == 'three'", "assert name_of_digit(4) == 'four'", "assert name_of_digit(5) == 'five'", "assert name_of_digit(6) == 'six'", "assert name_of_digit(7) == 'seven'", "assert name_of_digit(8) == 'eight'", "assert name_of_digit(9) == 'nine'", "assert name_of_tens(1) == 'ten'", "assert name_of_tens(2) == 'twenty'", "assert name_of_tens(3) == 'thirty'", "assert name_of_tens(4) == 'forty'", "assert name_of_tens(5) == 'fifty'", "assert name_of_tens(6) == 'sixty'", "assert name_of_tens(7) == 'seventy'", "assert name_of_tens(8) == 'eighty'", "assert name_of_tens(9) == 'ninety'", "assert name_of_fraction((1, 10)) == 'one tenth'", "assert name_of_fraction((2, 100)) == 'two one hundredths'", "assert name_of_fraction((3, 1000)) == 'three one hundredths'", "assert name_of_decimal(98, (7, 10)) == 'ninety eight and seven tenths'", "assert name_of_decimal(98, (0, 10)) == 'ninety eight'", "assert name_of_decimal(0, (7, 10)) == 'seven tenths'", "assert name_of_integer(9) == 'nine'", "assert name_of_integer(2015) == 'two thousand fifteen'", "assert name_in_dollars(0, 7) == 'seven cents'", "assert name_in_dollars(1, 0) == 'one dollar'", "assert name_in_dollars(0, 1) == 'one cent'", "assert name_in_dollars(2, 3) == 'two dollars and three cents'", "assert name_of_number('1') == 'one'", "assert name_of_number('10') == 'ten'", "assert name_of_number('123') == 'one hundred twenty three'", "assert name_of_number('12.5') == 'twelve and five tenths'", "assert name_of_number('$3') == 'three dollars'", "assert name_of_number('$4.50') == 'four dollars and fifty cents'"];
 
 var ShowExercise = _tag2["default"].define('ShowExercise', 0);
 var _EnteringInput = _tag2["default"].define('EnteringInput', 1);
@@ -61,39 +61,29 @@ var Main = React.createClass({
         });
     },
 
-    inputKeyDown: function inputKeyDown(e) {
-        var _this2 = this;
-
+    /*inputKeyDown(e) {
         if (e.keyCode === 9) {
-            var _ret = (function () {
-                var val = e.target.value,
-                    start = e.target.selectionStart,
-                    end = e.target.selectionEnd;
-
-                _this2.setState({
-                    input: val.substring(0, start) + '\t' + val.substring(end)
-                }, function () {
-                    e.target.selectionStart = e.target.selectionEnd = start + 1;
-                });
-
-                e.preventDefault();
-                return {
-                    v: false
-                };
-            })();
-
-            if (typeof _ret === "object") return _ret.v;
+            let val   = e.target.value,
+                start = e.target.selectionStart,
+                end   = e.target.selectionEnd;
+             this.setState({
+                input: val.substring(0, start) + '    ' + val.substring(end)
+            }, ()=> {
+                e.target.selectionStart = e.target.selectionEnd = start + 1;
+            });
+             e.preventDefault();
+            return false;
         }
-    },
+    },*/
 
     changeInput: function changeInput(e) {
-        var _this3 = this;
+        var _this2 = this;
 
         if (e.target.value === exercises[this.state.current]) {
             this.setState({
                 state: Congratulate
             }, function () {
-                React.findDOMNode(_this3.refs.next).focus();
+                React.findDOMNode(_this2.refs.next).focus();
             });
         } else {
             this.setState({
@@ -113,7 +103,7 @@ var Main = React.createClass({
     },
 
     render: function render() {
-        var _this4 = this;
+        var _this3 = this;
 
         return this.state.state.match({
             Congratulate: function Congratulate() {
@@ -127,13 +117,13 @@ var Main = React.createClass({
                     ),
                     React.createElement(
                         "button",
-                        { ref: "next", onClick: _this4.nextExercise },
+                        { ref: "next", onClick: _this3.nextExercise },
                         "Next"
                     )
                 );
             },
             ShowExercise: function ShowExercise() {
-                var exercise = exercises[_this4.state.current];
+                var exercise = exercises[_this3.state.current];
 
                 return React.createElement(
                     "div",
@@ -146,7 +136,7 @@ var Main = React.createClass({
                     React.createElement("textarea", { readOnly: true, value: exercise }),
                     React.createElement(
                         "button",
-                        { onClick: _this4.enterInput },
+                        { onClick: _this3.enterInput },
                         "Flip"
                     )
                 );
@@ -154,7 +144,7 @@ var Main = React.createClass({
             EnteringInput: function EnteringInput(_ref2) {
                 var countdown = _ref2.countdown;
 
-                var input = _this4.state.input;
+                var input = _this3.state.input;
 
                 if (countdown === 0) {
                     return React.createElement(
@@ -165,15 +155,15 @@ var Main = React.createClass({
                             null,
                             "Enter the code you just saw.  You can flip back to look at it again now"
                         ),
-                        React.createElement("textarea", { value: input, onChange: _this4.changeInput }),
+                        React.createElement("textarea", { value: input, onChange: _this3.changeInput }),
                         React.createElement(
                             "button",
-                            { onClick: _this4.showExercise },
+                            { onClick: _this3.showExercise },
                             "Flip"
                         )
                     );
                 } else {
-                    var _input = _this4.state.input;
+                    var _input = _this3.state.input;
 
                     return React.createElement(
                         "div",
@@ -186,8 +176,8 @@ var Main = React.createClass({
                             " seconds..."
                         ),
                         React.createElement("textarea", { ref: "input", value: _input,
-                            onKeyDown: _this4.inputKeyDown,
-                            onChange: _this4.changeInput }),
+                            onKeyDown: _this3.inputKeyDown,
+                            onChange: _this3.changeInput }),
                         React.createElement(
                             "button",
                             { disabled: true },
