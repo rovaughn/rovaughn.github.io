@@ -133,7 +133,7 @@ var Main = React.createClass({
                         null,
                         "Memorize the following, then when you’re ready to re-enter it, click “Flip.”"
                     ),
-                    React.createElement("textarea", { readOnly: true, value: exercise }),
+                    React.createElement("textarea", { rows: "25", cols: "80", readOnly: true, value: exercise }),
                     React.createElement(
                         "button",
                         { onClick: _this3.enterInput },
@@ -155,7 +155,7 @@ var Main = React.createClass({
                             null,
                             "Enter the code you just saw.  You can flip back to look at it again now"
                         ),
-                        React.createElement("textarea", { value: input, onChange: _this3.changeInput }),
+                        React.createElement("textarea", { rows: "25", cols: "80", value: input, onChange: _this3.changeInput }),
                         React.createElement(
                             "button",
                             { onClick: _this3.showExercise },
@@ -175,7 +175,7 @@ var Main = React.createClass({
                             countdown,
                             " seconds..."
                         ),
-                        React.createElement("textarea", { ref: "input", value: _input,
+                        React.createElement("textarea", { rows: "25", cols: "80", ref: "input", value: _input,
                             onKeyDown: _this3.inputKeyDown,
                             onChange: _this3.changeInput }),
                         React.createElement(
