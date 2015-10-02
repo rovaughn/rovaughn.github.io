@@ -1,0 +1,7 @@
+abc
+---
+int main(void) {
+    printf("hello");
+}
+---
+ghi

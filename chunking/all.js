@@ -1,196 +1,345 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-"use strict";
+'use strict';
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 var _tag = require('./tag');
 
 var _tag2 = _interopRequireDefault(_tag);
 
-var exercises = ["if n == 0:\n" + "    return 'zero'", "if n == 1:\n" + "    return 'one'", "if n == 2:\n" + "    return 'two'\n" + "elif n == 3:\n" + "    return 'three'", "if n == 4:\n" + "    return 'four'\n" + "elif n == 5:\n" + "    return 'five'\n" + "elif n == 6:\n" + "    return 'six'", "if n == 1:\n" + "    return 'ten'", "if n == 7:\n" + "    return 'seventy'\n" + "elif n == 8:\n" + "    return 'eighty'", "while n > 0:\n" + "    n, digit = n // 10, n % 10", "list = []", "list.append('one')", "list = []", "list.append(name_of_integer(1))", "list = []", "list.append(name_of_integer(n))", "def name_of_digit(n):\n" + "    if n == 0:\n" + "        return 'zero'\n" + "    elif n == 1:\n" + "        return 'one'", "n, d = tuple", "name_of_fraction((0, 100))", "return name_of_integer(n) + ' tenth'", "return name_of_integer(n) + ' one hundredth'", "return name_of_integer(n) + ' one one thousandth'", "assert name_of_digit(0) == 'zero'", "assert name_of_digit(1) == 'one'", "assert name_of_digit(2) == 'two'", "assert name_of_digit(3) == 'three'", "assert name_of_digit(4) == 'four'", "assert name_of_digit(5) == 'five'", "assert name_of_digit(6) == 'six'", "assert name_of_digit(7) == 'seven'", "assert name_of_digit(8) == 'eight'", "assert name_of_digit(9) == 'nine'", "assert name_of_tens(1) == 'ten'", "assert name_of_tens(2) == 'twenty'", "assert name_of_tens(3) == 'thirty'", "assert name_of_tens(4) == 'forty'", "assert name_of_tens(5) == 'fifty'", "assert name_of_tens(6) == 'sixty'", "assert name_of_tens(7) == 'seventy'", "assert name_of_tens(8) == 'eighty'", "assert name_of_tens(9) == 'ninety'", "assert name_of_fraction((1, 10)) == 'one tenth'", "assert name_of_fraction((2, 100)) == 'two one hundredths'", "assert name_of_fraction((3, 1000)) == 'three one hundredths'", "assert name_of_decimal(98, (7, 10)) == 'ninety eight and seven tenths'", "assert name_of_decimal(98, (0, 10)) == 'ninety eight'", "assert name_of_decimal(0, (7, 10)) == 'seven tenths'", "assert name_of_integer(9) == 'nine'", "assert name_of_integer(2015) == 'two thousand fifteen'", "assert name_in_dollars(0, 7) == 'seven cents'", "assert name_in_dollars(1, 0) == 'one dollar'", "assert name_in_dollars(0, 1) == 'one cent'", "assert name_in_dollars(2, 3) == 'two dollars and three cents'", "assert name_of_number('1') == 'one'", "assert name_of_number('10') == 'ten'", "assert name_of_number('123') == 'one hundred twenty three'", "assert name_of_number('12.5') == 'twelve and five tenths'", "assert name_of_number('$3') == 'three dollars'", "assert name_of_number('$4.50') == 'four dollars and fifty cents'"];
+var Congratulate = _tag2['default'].define('Congratulate');
+var ShowWorkbooks = _tag2['default'].define('ShowWorkbooks');
+var ShowExercise = _tag2['default'].define('ShowExercise');
+var ShowInput = _tag2['default'].define('ShowInput');
 
-var ShowExercise = _tag2["default"].define('ShowExercise', 0);
-var _EnteringInput = _tag2["default"].define('EnteringInput', 1);
-var Congratulate = _tag2["default"].define('Congratulate', 0);
+var _DoingExercise = _tag2['default'].define('DoingExercise', {
+    input: _tag2['default'].string,
+    flip: _tag2['default'].oneOf(ShowExercise, ShowInput)
+});
+var _InWorkbook = _tag2['default'].define('InWorkbook', {
+    currentWorkbook: _tag2['default'].string,
+    currentExercise: _tag2['default'].number,
+    view: _tag2['default'].oneOf(_DoingExercise, Congratulate)
+});
 
-var Main = React.createClass({
-    displayName: "Main",
+var Workbook = {
+    exercises: _tag2['default'].arrayOf(_tag2['default'].string),
+    completed: _tag2['default'].number
+};
 
-    getInitialState: function getInitialState() {
-        return { current: 0,
-            input: '',
-            exercises: exercises,
-            state: ShowExercise
-        };
-    },
+var _State = _tag2['default'].define('State', {
+    workbooks: _tag2['default'].objectOf(Workbook),
+    substate: _tag2['default'].oneOf(ShowWorkbooks, _InWorkbook)
+});
 
-    componentDidUpdate: function componentDidUpdate() {
-        localStorage.state = JSON.stringify(this.state);
-    },
+function mapObject(o, f) {
+    return Object.keys(o).map(function (k) {
+        return f(k, o[k]);
+    });
+}
 
-    showExercise: function showExercise() {
-        this.setState({ state: ShowExercise });
-    },
+// A textarea that does nice things like supports tab.
+var Editor = React.createClass({
+    displayName: 'Editor',
 
-    enterInput: function enterInput() {
-        var _this = this;
-
-        this.countdownInterval = setInterval(function () {
-            _this.state.state.match({
-                EnteringInput: function EnteringInput(_ref) {
-                    var countdown = _ref.countdown;
-
-                    if (countdown === 1) {
-                        clearInterval(_this.countdownInterval);
-                    }
-
-                    _this.setState({
-                        state: _EnteringInput({ countdown: countdown - 1 })
-                    });
-                },
-                "default": function _default() {
-                    clearInterval(_this.countdownInterval);
-                }
-            });
-        }, 1000);
-
-        this.setState({
-            state: _EnteringInput({ countdown: 3 })
-        }, function () {
-            React.findDOMNode(_this.refs.input).focus();
-        });
-    },
-
-    /*inputKeyDown(e) {
+    inputKeyDown: function inputKeyDown(e) {
         if (e.keyCode === 9) {
-            let val   = e.target.value,
+            var val = e.target.value,
                 start = e.target.selectionStart,
-                end   = e.target.selectionEnd;
-             this.setState({
-                input: val.substring(0, start) + '    ' + val.substring(end)
-            }, ()=> {
-                e.target.selectionStart = e.target.selectionEnd = start + 1;
-            });
-             e.preventDefault();
+                end = e.target.selectionEnd;
+
+            e.target.value = val.substring(0, start) + '    ' + val.substring(end);
+            //e.target.selectionStart = e.target.selectionEnd = start + 1;
+
+            e.preventDefault();
             return false;
         }
-    },*/
-
-    changeInput: function changeInput(e) {
-        var _this2 = this;
-
-        if (e.target.value === exercises[this.state.current]) {
-            this.setState({
-                state: Congratulate
-            }, function () {
-                React.findDOMNode(_this2.refs.next).focus();
-            });
-        } else {
-            this.setState({
-                input: e.target.value
-            });
-        }
-    },
-
-    nextExercise: function nextExercise() {
-        this.setState(function (state) {
-            return {
-                state: ShowExercise,
-                current: state.current + 1,
-                input: ''
-            };
-        });
     },
 
     render: function render() {
-        var _this3 = this;
+        if (this.props.readOnly) {
+            return React.createElement('textarea', { ref: 'textarea',
+                style: this.props.style,
+                rows: '25', cols: '80', readOnly: true,
+                value: this.props.value });
+        } else {
+            return React.createElement('textarea', { ref: 'textarea',
+                style: this.props.style,
+                rows: '25', cols: '80', ref: 'input',
+                value: this.props.value,
+                onKeyDown: this.inputKeyDown,
+                onChange: this.props.onChange });
+        }
+    }
+});
 
-        return this.state.state.match({
-            Congratulate: function Congratulate() {
-                return React.createElement(
-                    "div",
-                    null,
-                    React.createElement(
-                        "p",
-                        null,
-                        "Congratulations, that's correct!"
-                    ),
-                    React.createElement(
-                        "button",
-                        { ref: "next", onClick: _this3.nextExercise },
-                        "Next"
-                    )
-                );
-            },
-            ShowExercise: function ShowExercise() {
-                var exercise = exercises[_this3.state.current];
+var Main = React.createClass({
+    displayName: 'Main',
 
-                return React.createElement(
-                    "div",
-                    null,
-                    React.createElement(
-                        "p",
-                        null,
-                        "Memorize the following, then when you’re ready to re-enter it, click “Flip.”"
-                    ),
-                    React.createElement("textarea", { rows: "25", cols: "80", readOnly: true, value: exercise }),
-                    React.createElement(
-                        "button",
-                        { onClick: _this3.enterInput },
-                        "Flip"
-                    )
-                );
-            },
-            EnteringInput: function EnteringInput(_ref2) {
-                var countdown = _ref2.countdown;
+    getInitialState: function getInitialState() {
+        return _State({
+            workbooks: this.props.workbooks,
+            substate: ShowWorkbooks
+        });
+    },
 
-                var input = _this3.state.input;
+    /*componentDidUpdate() {
+        localStorage.state = this.state.serialize();
+    },*/
 
-                if (countdown === 0) {
-                    return React.createElement(
-                        "div",
-                        null,
-                        React.createElement(
-                            "p",
+    render: function render() {
+        var _this = this;
+
+        return this.state.match({
+            State: function State(_ref) {
+                var workbooks = _ref.workbooks;
+                var substate = _ref.substate;
+                return substate.match({
+                    ShowWorkbooks: function ShowWorkbooks() {
+                        var enterWorkbook = function enterWorkbook(name) {
+                            return function () {
+                                _this.replaceState(_State({
+                                    workbooks: workbooks,
+                                    substate: _InWorkbook({
+                                        currentWorkbook: name,
+                                        currentExercise: 0,
+                                        view: _DoingExercise({
+                                            input: '',
+                                            flip: ShowExercise
+                                        })
+                                    })
+                                }));
+                            };
+                        };
+
+                        return React.createElement(
+                            'div',
                             null,
-                            "Enter the code you just saw.  You can flip back to look at it again now"
-                        ),
-                        React.createElement("textarea", { rows: "25", cols: "80", value: input, onChange: _this3.changeInput }),
-                        React.createElement(
-                            "button",
-                            { onClick: _this3.showExercise },
-                            "Flip"
-                        )
-                    );
-                } else {
-                    var _input = _this3.state.input;
+                            React.createElement(
+                                'h1',
+                                null,
+                                'Select a workbook'
+                            ),
+                            React.createElement(
+                                'ul',
+                                null,
+                                mapObject(workbooks, function (name, workbook) {
+                                    return React.createElement(
+                                        'li',
+                                        { key: name },
+                                        React.createElement(
+                                            'a',
+                                            { href: '#', onClick: enterWorkbook(name) },
+                                            React.createElement(
+                                                'strong',
+                                                null,
+                                                name
+                                            )
+                                        ),
+                                        ': ',
+                                        workbook.completed,
+                                        ' completed out of ',
+                                        workbook.exercises.length
+                                    );
+                                })
+                            )
+                        );
+                    },
 
-                    return React.createElement(
-                        "div",
-                        null,
-                        React.createElement(
-                            "p",
-                            null,
-                            "Enter the code you just saw.  You can flip back to look at it again in ",
-                            countdown,
-                            " seconds..."
-                        ),
-                        React.createElement("textarea", { rows: "25", cols: "80", ref: "input", value: _input,
-                            onKeyDown: _this3.inputKeyDown,
-                            onChange: _this3.changeInput }),
-                        React.createElement(
-                            "button",
-                            { disabled: true },
-                            "Flip"
-                        )
-                    );
-                }
+                    InWorkbook: function InWorkbook(_ref2) {
+                        var currentWorkbook = _ref2.currentWorkbook;
+                        var currentExercise = _ref2.currentExercise;
+                        var view = _ref2.view;
+
+                        var workbook = workbooks[currentWorkbook];
+                        var exercise = workbook.exercises[currentExercise];
+
+                        var nextExercise = function nextExercise() {
+                            workbook.completed += 1;
+
+                            if (workbook.completed === workbook.exercises.length) {
+                                _this.replaceState(_State({
+                                    workbooks: workbooks,
+                                    substate: ShowWorkbooks
+                                }));
+                            } else {
+                                _this.replaceState(_State({
+                                    workbooks: workbooks,
+                                    substate: _InWorkbook({
+                                        currentWorkbook: currentWorkbook,
+                                        currentExercise: currentExercise + 1,
+                                        view: _DoingExercise({
+                                            input: '',
+                                            flip: ShowExercise
+                                        })
+                                    })
+                                }));
+                            }
+                        };
+
+                        return view.match({
+                            Congratulate: function Congratulate() {
+                                return React.createElement(
+                                    'div',
+                                    null,
+                                    React.createElement(
+                                        'p',
+                                        null,
+                                        'Congratulations, that\'s correct!'
+                                    ),
+                                    React.createElement(
+                                        'button',
+                                        { ref: 'next', onClick: nextExercise },
+                                        'Next'
+                                    )
+                                );
+                            },
+
+                            DoingExercise: function DoingExercise(_ref3) {
+                                var input = _ref3.input;
+                                var flip = _ref3.flip;
+
+                                var flipToShowInput = function flipToShowInput() {
+                                    React.findDOMNode(_this.refs.editor).focus();
+                                    _this.replaceState(_State({
+                                        workbooks: workbooks,
+                                        substate: _InWorkbook({
+                                            currentWorkbook: currentWorkbook,
+                                            currentExercise: currentExercise,
+                                            view: _DoingExercise({
+                                                input: input,
+                                                flip: ShowInput
+                                            })
+                                        })
+                                    }));
+                                };
+
+                                var flipToShowExercise = function flipToShowExercise() {
+                                    _this.replaceState(_State({
+                                        workbooks: workbooks,
+                                        substate: _InWorkbook({
+                                            currentWorkbook: currentWorkbook,
+                                            currentExercise: currentExercise,
+                                            view: _DoingExercise({
+                                                input: input,
+                                                flip: ShowExercise
+                                            })
+                                        })
+                                    }));
+                                };
+
+                                var changeInput = function changeInput(e) {
+                                    if (e.target.value === exercise) {
+                                        _this.replaceState(_State({
+                                            workbooks: workbooks,
+                                            substate: _InWorkbook({
+                                                currentWorkbook: currentWorkbook,
+                                                currentExercise: currentExercise,
+                                                view: Congratulate
+                                            })
+                                        }));
+                                    } else {
+                                        _this.replaceState(_State({
+                                            workbooks: workbooks,
+                                            substate: _InWorkbook({
+                                                currentWorkbook: currentWorkbook,
+                                                currentExercise: currentExercise,
+                                                view: _DoingExercise({
+                                                    input: e.target.value,
+                                                    flip: ShowInput
+                                                })
+                                            })
+                                        }));
+                                    }
+                                };
+
+                                return flip.match({
+                                    ShowExercise: function ShowExercise() {
+                                        return React.createElement(
+                                            'div',
+                                            null,
+                                            React.createElement(
+                                                'p',
+                                                null,
+                                                'Memorize the following, then when you’re ready to re-enter it, click “Flip.”'
+                                            ),
+                                            React.createElement(Editor, { ref: 'editor', readOnly: true, value: exercise }),
+                                            React.createElement(
+                                                'button',
+                                                { ref: 'flip', onClick: flipToShowInput },
+                                                'Flip'
+                                            )
+                                        );
+                                    },
+
+                                    ShowInput: function ShowInput() {
+                                        return React.createElement(
+                                            'div',
+                                            null,
+                                            React.createElement(
+                                                'p',
+                                                null,
+                                                'Enter the code you just saw.  You can flip back to look at it.'
+                                            ),
+                                            React.createElement(Editor, { ref: 'editor', style: { marginLeft: '100px' }, value: input, onChange: changeInput }),
+                                            React.createElement(
+                                                'button',
+                                                { ref: 'flip', onClick: flipToShowExercise },
+                                                'Flip'
+                                            )
+                                        );
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
             }
         });
     }
 });
 
-var main = React.render(React.createElement(Main, null), document.getElementById('main'));
+Promise.all(['dumb'].map(function (name) {
+    return xr.get('/' + name + '.txt', {}, {
+        load: function load(data) {
+            return {
+                name: name,
+                completed: 0,
+                exercises: data.trim().split('\n---\n')
+            };
+        }
+    });
+})).then(function (workbooks) {
+    var o = {};
+
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+        for (var _iterator = workbooks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            var workbook = _step.value;
+
+            o[workbook.name] = workbook;
+            delete workbook.name;
+        }
+    } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+    } finally {
+        try {
+            if (!_iteratorNormalCompletion && _iterator['return']) {
+                _iterator['return']();
+            }
+        } finally {
+            if (_didIteratorError) {
+                throw _iteratorError;
+            }
+        }
+    }
+
+    window.main = React.render(React.createElement(Main, { workbooks: o }), document.getElementById('main'));
+});
 
 },{"./tag":2}],2:[function(require,module,exports){
 'use strict';
@@ -202,11 +351,33 @@ var _bind = Function.prototype.bind;
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i]; return arr2; } else { return Array.from(arr); } }
-
-function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+function hasType(x, t) {
+    if (typeof x === 'undefined') {
+        return 'defined';
+    } else if (typeof t === 'function' && typeof t.tagName !== 'undefined') {
+        return x instanceof Tag && x.name === t.tagName ? null : t.name;
+    } else if (typeof t === 'function') {
+        return t(x);
+    } else if (t instanceof Tag) {
+        return x instanceof Tag && x.name === t.name ? null : t.name;
+    } else {
+        for (var k in x) {
+            if (typeof t[k] === 'undefined') {
+                return 'object without field "' + k + '"';
+            }
+        }
+
+        var err = undefined;
+
+        for (var k in t) {
+            if (err = hasType(x[k], t[k])) {
+                return 'object with field "' + k + '" that is ' + err;
+            }
+        }
+    }
+}
 
 var Tag = (function () {
     function Tag(name) {
@@ -244,11 +415,6 @@ var Tag = (function () {
             return this.name + '(' + this.args.map(JSON.stringify).join(', ') + ')';
         }
     }, {
-        key: 'toJSON',
-        value: function toJSON() {
-            return [this.name].concat(this.args);
-        }
-    }, {
         key: 'set',
         value: function set(newValues) {
             var oldValues = this.args[0],
@@ -266,33 +432,161 @@ var Tag = (function () {
         }
     }], [{
         key: 'define',
-        value: function define(name, nargs) {
-            if (nargs === 0) {
+        value: function define(name) {
+            for (var _len2 = arguments.length, types = Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+                types[_key2 - 1] = arguments[_key2];
+            }
+
+            if (types.length === 0) {
                 return new Tag(name);
             }
 
-            return function () {
-                for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-                    args[_key2] = arguments[_key2];
+            var fn = function fn() {
+                for (var _len3 = arguments.length, args = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+                    args[_key3] = arguments[_key3];
                 }
 
-                if (args.length !== nargs) {
-                    throw new Error('Tag constructor "' + name + '" expects ' + nargs + ' arguments, not ' + args.length);
+                if (args.length !== types.length) {
+                    throw new Error('Tag constructor "' + name + '" expects ' + types.length + ' arguments, not ' + args.length);
+                }
+
+                for (var i = 0; i < args.length; i++) {
+                    var arg = args[i],
+                        type = types[i],
+                        err = hasType(arg, type);
+
+                    if (err) {
+                        throw new Error('Tag constructor "' + name + '" expected argument ' + (i + 1) + ' to be ' + err);
+                    }
                 }
 
                 return new (_bind.apply(Tag, [null].concat([name], args)))();
             };
+
+            fn.tagName = name;
+
+            return fn;
         }
     }, {
-        key: 'fromJSON',
-        value: function fromJSON(_ref) {
-            var _ref2 = _toArray(_ref);
+        key: 'any',
+        value: function any() {
+            return null;
+        }
+    }, {
+        key: 'number',
+        value: function number(x) {
+            return typeof x === 'number' ? null : 'number';
+        }
+    }, {
+        key: 'string',
+        value: function string(x) {
+            return typeof x === 'string' ? null : 'string';
+        }
+    }, {
+        key: 'boolean',
+        value: function boolean(x) {
+            return typeof x === 'boolean' ? null : 'boolean';
+        }
+    }, {
+        key: 'objectOf',
+        value: function objectOf(type) {
+            return function (x) {
+                if (typeof x !== 'object') return 'object';
 
-            var name = _ref2[0];
+                var err = undefined;
 
-            var args = _ref2.slice(1);
+                for (var k in x) {
+                    if (err = hasType(x[k], type)) {
+                        return 'object of ' + err;
+                    }
+                }
+            };
+        }
+    }, {
+        key: 'arrayOf',
+        value: function arrayOf(type) {
+            return function (arr) {
+                if (!(arr instanceof Array)) return 'array';
 
-            return new (_bind.apply(Tag, [null].concat([name], _toConsumableArray(args))))();
+                var err = undefined;
+
+                var _iteratorNormalCompletion = true;
+                var _didIteratorError = false;
+                var _iteratorError = undefined;
+
+                try {
+                    for (var _iterator = arr[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                        var x = _step.value;
+
+                        if (err = hasType(x, type)) {
+                            return 'array of ' + err;
+                        }
+                    }
+                } catch (err) {
+                    _didIteratorError = true;
+                    _iteratorError = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion && _iterator['return']) {
+                            _iterator['return']();
+                        }
+                    } finally {
+                        if (_didIteratorError) {
+                            throw _iteratorError;
+                        }
+                    }
+                }
+            };
+        }
+    }, {
+        key: 'oneOf',
+        value: function oneOf() {
+            for (var _len4 = arguments.length, types = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+                types[_key4] = arguments[_key4];
+            }
+
+            return function (x) {
+                var errs = [];
+                var err = undefined;
+
+                var _iteratorNormalCompletion2 = true;
+                var _didIteratorError2 = false;
+                var _iteratorError2 = undefined;
+
+                try {
+                    for (var _iterator2 = types[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                        var type = _step2.value;
+
+                        if (err = hasType(x, type)) {
+                            errs.push(err);
+                        } else {
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    _didIteratorError2 = true;
+                    _iteratorError2 = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion2 && _iterator2['return']) {
+                            _iterator2['return']();
+                        }
+                    } finally {
+                        if (_didIteratorError2) {
+                            throw _iteratorError2;
+                        }
+                    }
+                }
+
+                return errs.join(' or ');
+            };
+        }
+    }, {
+        key: 'validate',
+        value: function validate(message, fn) {
+            return function (x) {
+                return fn(x) ? null : message;
+            };
         }
     }]);
 
