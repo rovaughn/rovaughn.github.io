@@ -300,7 +300,7 @@ var Main = React.createClass({
 });
 
 Promise.all(['dumb'].map(function (name) {
-    return xr.get('/' + name + '.txt', {}, {
+    return xr.get('./' + name + '.txt', {}, {
         load: function load(data) {
             return {
                 name: name,
