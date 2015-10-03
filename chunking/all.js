@@ -66,7 +66,7 @@ var Editor = React.createClass({
         } else {
             return React.createElement('textarea', { ref: 'textarea',
                 style: this.props.style,
-                rows: '25', cols: '80', ref: 'input',
+                rows: '25', cols: '80',
                 value: this.props.value,
                 onKeyDown: this.inputKeyDown,
                 onChange: this.props.onChange });
