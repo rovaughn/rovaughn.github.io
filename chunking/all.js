@@ -17,18 +17,19 @@ var _DoingExercise = _tag2['default'].define('DoingExercise', {
     flip: _tag2['default'].oneOf(ShowExercise, ShowInput)
 });
 var _InWorkbook = _tag2['default'].define('InWorkbook', {
-    currentWorkbook: _tag2['default'].string,
+    currentWorkbook: _tag2['default'].number,
     currentExercise: _tag2['default'].number,
     view: _tag2['default'].oneOf(_DoingExercise, Congratulate)
 });
 
 var Workbook = {
+    name: _tag2['default'].string,
     exercises: _tag2['default'].arrayOf(_tag2['default'].string),
     completed: _tag2['default'].number
 };
 
 var _State = _tag2['default'].define('State', {
-    workbooks: _tag2['default'].objectOf(Workbook),
+    workbooks: _tag2['default'].arrayOf(Workbook),
     substate: _tag2['default'].oneOf(ShowWorkbooks, _InWorkbook)
 });
 
@@ -96,12 +97,12 @@ var Main = React.createClass({
                 var substate = _ref.substate;
                 return substate.match({
                     ShowWorkbooks: function ShowWorkbooks() {
-                        var enterWorkbook = function enterWorkbook(name) {
+                        var enterWorkbook = function enterWorkbook(index) {
                             return function () {
                                 _this.replaceState(_State({
                                     workbooks: workbooks,
                                     substate: _InWorkbook({
-                                        currentWorkbook: name,
+                                        currentWorkbook: index,
                                         currentExercise: 0,
                                         view: _DoingExercise({
                                             input: '',
@@ -123,17 +124,17 @@ var Main = React.createClass({
                             React.createElement(
                                 'ul',
                                 null,
-                                mapObject(workbooks, function (name, workbook) {
+                                workbooks.map(function (workbook, i) {
                                     return React.createElement(
                                         'li',
-                                        { key: name },
+                                        { key: workbook.name },
                                         React.createElement(
                                             'a',
-                                            { href: '#', onClick: enterWorkbook(name) },
+                                            { href: '#', onClick: enterWorkbook(i) },
                                             React.createElement(
                                                 'strong',
                                                 null,
-                                                name
+                                                workbook.name
                                             )
                                         ),
                                         ': ',
@@ -189,7 +190,7 @@ var Main = React.createClass({
                                     ),
                                     React.createElement(
                                         'button',
-                                        { ref: 'next', onClick: nextExercise },
+                                        { ref: 'next', autoFocus: true, onClick: nextExercise },
                                         'Next'
                                     )
                                 );
@@ -266,7 +267,7 @@ var Main = React.createClass({
                                             React.createElement(Editor, { ref: 'editor', readOnly: true, value: exercise }),
                                             React.createElement(
                                                 'button',
-                                                { ref: 'flip', onClick: flipToShowInput },
+                                                { autoFocus: true, ref: 'flip', onClick: flipToShowInput },
                                                 'Flip'
                                             )
                                         );
@@ -299,7 +300,7 @@ var Main = React.createClass({
     }
 });
 
-Promise.all(['dumb'].map(function (name) {
+Promise.all(['variables', 'dictionaries'].map(function (name) {
     return xr.get('./' + name + '.txt', {}, {
         load: function load(data) {
             return {
@@ -310,35 +311,7 @@ Promise.all(['dumb'].map(function (name) {
         }
     });
 })).then(function (workbooks) {
-    var o = {};
-
-    var _iteratorNormalCompletion = true;
-    var _didIteratorError = false;
-    var _iteratorError = undefined;
-
-    try {
-        for (var _iterator = workbooks[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-            var workbook = _step.value;
-
-            o[workbook.name] = workbook;
-            delete workbook.name;
-        }
-    } catch (err) {
-        _didIteratorError = true;
-        _iteratorError = err;
-    } finally {
-        try {
-            if (!_iteratorNormalCompletion && _iterator['return']) {
-                _iterator['return']();
-            }
-        } finally {
-            if (_didIteratorError) {
-                throw _iteratorError;
-            }
-        }
-    }
-
-    window.main = React.render(React.createElement(Main, { workbooks: o }), document.getElementById('main'));
+    window.main = React.render(React.createElement(Main, { workbooks: workbooks }), document.getElementById('main'));
 });
 
 },{"./tag":2}],2:[function(require,module,exports){

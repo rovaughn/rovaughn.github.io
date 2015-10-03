@@ -1,0 +1,17 @@
+if True:
+    print('This will print')
+---
+if False:
+    print('This will not print')
+---
+if x == 1:
+    print('x is 1')
+else:
+    print('x is not 1')
+---
+if x == 1:
+    print('x is 1')
+elif x == 2:
+    print('x is 2')
+else:
+    print('x is neither 1 nor 2')

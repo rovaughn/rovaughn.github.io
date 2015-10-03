@@ -1,0 +1,37 @@
+x = 1
+assert x == 1
+---
+x = 1
+y = 2
+x = y
+assert x == 2
+---
+x, y = 3, 4
+assert x == 3
+assert y == 4
+--
+x = 5
+print(x)
+
+# Output:
+# 5
+---
+x = 3
+def print_x():
+    print(x)
+
+# Output:
+# 3
+---
+x = 3
+def set_x():
+    x = 5
+    assert x == 5
+assert x == 3
+---
+x = 3
+def set_x():
+    global x
+    x = 5
+    assert x == 5
+assert x == 5
