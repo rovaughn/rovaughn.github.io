@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Better Software - rovaughn</title>
+  <link rel="stylesheet" href="/main.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, maximum-scale=1, minimum-scale=1;">
+</head>
+<body>
+  <article>
+    <nav>
+      <h1><a href="/">Rovaughn</a></h1>
+      <ul>
+      <li><a href="/self.html">About me</a>
+      <li><a href="/browse.html">Browse</a>
+      <li><a href="/rss.rss">RSS</a>
+      <li><a href="https://github.com/rovaughn">GitHub</a>
+      </ul>
+    </nav>
+    <h2>Better Software</h2>
+    <p>Software could be better. This document outlines principles that should be
+adhered, and ways that existing systems could improve.</p>
+
+<h2>Before-optimization principle</h2>
+
+<p>Before optimizing something, recognize the essential model. That which is most
+self consistent, least error prone, most intuitive.</p>
+
+<p>Start from this; you know that any optimizations you make will match this model.
+This is how you avoid accidentally optimizing something in a way that introduces
+inconsistency.</p>
+
+<h2>Minimal data principle</h2>
+
+<p>Keep the smallest data possible, from which all that remains can be derived.</p>
+
+<p>This is how systems should be designed. Sure, caching is used for optimization.
+But given the before-optimization principle, it should <em>act</em> like all the data
+is derived from a kernel.</p>
+
+<p>Truly compressed data is actually just an integer from a set of integers. It&rsquo;s
+impossible to create compressed data that&rsquo;s &quot;wrong.&quot; If it&rsquo;s possible for data
+in a model to be inconsistent, then that&rsquo;s a facet which could be compressed
+further.</p>
+
+<p>Typically there is a difference between core and representation.</p>
+
+<pre><code>Render :: Core -&gt; Representation
+</code></pre>
+
+<p>Because the core is always self-consistent with respect to the model, all
+updates are done on the core, rather than the representation. Then the
+representation is recomputed from the core.</p>
+
+<p>I should find that article on optimizing a function that follows this pattern.</p>
+
+<h2>Languages</h2>
+
+<p>Dependent typing needs to be more popular.</p>
+
+<p>One of the cores of programming is the function. Functions represent
+dependency; you give me this, I&rsquo;ll give you back this. Addition asks for two
+numbers and returns a number, for instance.</p>
+
+<p>Dependent typing makes it possible for functions to depend on proofs instead of
+just what we&rsquo;d normally call values. For instance, a function to retrieve an
+item from an array might look like</p>
+
+<pre><code>getIndex(array of A, integer index, proof that index &lt; len(array)) -&gt; A
+</code></pre>
+
+<p>There could be a language for which the compilation target is a library. That
+is, instead of compiling program A to binary B, you run program A, which
+produces binary B.</p>
+
+<p>There&rsquo;d be libraries for emitting machine code. This also means you could
+create your own DSL for CSS, HTMl, JavaScript, etc.</p>
+
+<p>Using the same dependent programming ideas, this could be incredibly safe and
+fast. You could program at the assembly level in a completely safe way.</p>
+
+<p>Also, like lisp, code should just be data. This fits in with the idea the idea
+that the program just generates code. For instance if we have a function</p>
+
+<pre><code>(def (hypotenuse a b) (sqrt (+ (** a 2) (** b 2))))
+</code></pre>
+
+<p>Or somesuch, the code is just code, ready to be interpreted by anything else. A
+javascript compiler could handle it one way, a native compiler a different way.
+The compiler itself is programmed.</p>
+
+<p>It&rsquo;d be even safer than Rust.</p>
+
+<p>It&rsquo;s time for silly errors to be gone from software.</p>
+
+<p>This&rsquo;d also make it VASTLY easier to make JITs. For instance, since the
+compiler code is just part of the language, it&rsquo;d be easy to compile regular
+expressions at runtime. Or SQL queries.</p>
+
+<h2>Terminal</h2>
+
+<p>Terminals are old and suck.</p>
+
+<p>Replace it all with a graphical windowing system.</p>
+
+<p>The advantage of a terminal is it&rsquo;s an extremely portable medium for programs.
+You can easily SSH with a terminal. It&rsquo;s dead easy to write utilities for a
+terminal.</p>
+
+<p>A program gets a box it can draw into. It&rsquo;s just a grid of pixels. Userspace
+libraries handle text, etc. Programs would be consistent across platforms and
+very fast.</p>
+
+<p>Built in would be a fast implementation of a React-like diff engine. The
+program would generate each frame from scratch and hand it to the windower. If
+the window is being viewed over a connection like SSH, it&rsquo;d be serialized in a
+very efficient manner. Otherwise it could be directly updated in a quick way.</p>
+
+<p>Programs would also have access to the raw stream so they can be more efficient
+if necessary, like a video player.</p>
+
+<p>The shell and tiling window system would pretty much be the same. The shell
+just allocates space/tiles to different subprograms.</p>
+
+<p>This&rsquo;d finally make it possible to view an image directly in the shell. Or have
+much better displays for data.</p>
+
+<h2>Editors</h2>
+
+<p>There should be a tree based editor that edits the structure of things, not the
+character grid.</p>
+
+<p>For instance given</p>
+
+<pre><code>&lt;a href=&quot;/mylink&quot;&gt;name&lt;/a&gt;
+</code></pre>
+
+<p>You&rsquo;d navigate it more like the following tree</p>
+
+<pre><code>&lt;a href=&quot;/mylink&quot;&gt;name&lt;/a&gt;
+     &lt;a href=&quot;/mylink&quot;&gt;
+        a
+        href=&quot;/mylink&quot;
+            href
+            &quot;/mylink&quot;
+        name
+</code></pre>
+
+<p>If you typed a double quote into the quoted string, it&rsquo;d automatically be
+escaped to <code>&amp;quot;</code>.</p>
+
+<p>Operations that could be performed in the editor would include swapping
+siblings, deleting nodes, adding nodes, editing nodes, etc.</p>
+
+<p>Code would always have correct syntax and be correctly formatted, because it&rsquo;s
+impossible to have it any other way.</p>
+
+<p>Same as the minimal data principle.</p>
+
+<p>Like react, you edit the core data, and the representation (text) is computed
+from that. Thus the code is always correct, and edits are optimal.</p>
+
+<p>The editor could simultaneously edit the filesystem too, since that&rsquo;s a tree as
+well. However, that might be a bit harder to think about, as the file system
+changes underneath the editor.</p>
+
+<p>Either way similar tree-navigation keystrokes could be used.</p>
+
+<h2>Distribution/anarchy</h2>
+
+<p>So much software depends on a client/server architecture.</p>
+
+<p>This is generally for two reasons: to distribute the use of resources, and to
+share data.</p>
+
+<p>For instance, you don&rsquo;t need all of Netflix&rsquo;s movies on your computer, so you
+use their storage space. Plus when new movies and shows come out, you want to
+watch them.</p>
+
+<p>But there are some issues for this. For one, the system completely depends on
+the server to be up. It&rsquo;s an obvious bottleneck point. Plus, it doesn&rsquo;t make
+sense that only one person can host the same thing; someone else should be able
+to spin up their own server which does the same thing.</p>
+
+<p>More software should be distributed. Like git. Almost exactly like git, in
+many ways.</p>
+
+<p>Operations occur on local data, which is then pushed/pulled as needed.</p>
+
+<p>For instance, my calorie counter could push/pull data from a central server.
+This is optional, but may be convenient. It can be any server I wish. And it&rsquo;s
+just simple data.</p>
+
+<p>Then my desktop can pull from the same data.</p>
+
+<p>I&rsquo;d operate on the data locally. Hopefully with a nice GUI application. But it
+<em>could</em> be anything. Since it&rsquo;s just data. If it&rsquo;s just an sqlite3 file, I
+could poke around it with my sqlite3 client if I wanted.</p>
+
+<p>I imagine a system like git that&rsquo;s more general. It handles more kinds of data,
+and isn&rsquo;t in any way geared toward code. Diffs would be binary diffs; maybe
+even just gzip deltas (or something similar), or custom for the application.</p>
+
+<p>It would handle pushing, pulling, dealing with multiple remotes and branches.</p>
+
+<p>This raises the question of merging.</p>
+
+<p>Monotonic data is always mergeable. Which is important.</p>
+
+<p>So most applications could use some kind of monotonic data, which takes care of
+merging.</p>
+
+<p>Another important kind of resource is computation. It should be easy to
+distribute computational resources, the same way you might with storage.</p>
+
+<p>Take the source code for a server, and put it up on rented hardware.</p>
+
+<p>Rented resources should be paid for. Otherwise, who is, and why?</p>
+
+<p>With the window manager, I could run programs on a different computer and stream
+them to mine pretty easily.</p>
+
+<p>Lots of existing websites would be fascinating if they were distributed.</p>
+
+<p>BitTorrent already covers a lot of media sharing, like games, movies, music,
+books, software, etc. etc.</p>
+
+<p>It&rsquo;d be great to see bittorrent for package managers.</p>
+
+<p>The almost more interesting ones are more computational platforms.</p>
+
+<p>For instance, tumblr, twitter. These lend themselves to distribution.</p>
+
+<p>Ebay and craigslist and other markets could be local.</p>
+
+<p>The memex would be a great example that covers a lot of these.</p>
+
+<p>Encryption and authentication are significant here. It also implies a web of
+trust.</p>
+
+<h2>Data market</h2>
+
+<p>It&rsquo;d be cool to have a free market of data. Like bittorrent, but you auction
+off your data.</p>
+
+<p>This would offset the costs of seeding, encourage people to seed, and encourage
+people to find valuable data to seed.</p>
+
+<p>Some people could even have a side business of scanning, e.g. textbooks and
+seeding them.</p>
+
+<p>As data distributes throughout the system, costs plummet, but probably staying
+above a certain minimum amount to offset bandwidth/cpu cycle costs.</p>
+
+<p>The hardest part might be verifying the correctness of data. Since people would
+probably try to cheat. Money would have to be stored in escrow or somesuch.</p>
+
+<h2>Privacy/encryption</h2>
+
+<p>As many things should be encrypted/authenticated as possible. This is important
+in a distributed world, as well as a time of NSA spying.</p>
+
+<p>Distributed, encrypted markets/networks could circumvent so much silliness.</p>
+
+  </article>
+  <script>
+    if (window.location.pathname !== '/2015-10-3.html') {
+      window.history.replaceState(null, "Better Software", "/2015-10-3.html");
+    }
+  </script>
+</body>
+</html>
