@@ -1,0 +1,136 @@
+Run a program
+F5
+---
+Stop a runaway program
+Ctrl-C
+---
+name = input('Enter your name: ')
+---
+age = int(input('Enter your age: '))
+---
+print('Your name is', name)
+print('Your age is', age)
+---
+print('Your name is %s' % name)
+print('Your age is %d' % age)
+---
+print(name[0])
+---
+print(name[-1])
+print(name[len(name) - 1])
+---
+chars = list(sentence)
+---
+print(scores[1:-1])
+---
+list2 = scores[:]
+---
+odd = count % 2 == 1
+---
+sum, product = x + y, x * y
+---
+mid = x + y + z - max(x, y, z) - min(x, y, z)
+---
+list2 = [x for x in list1 if x > 0]
+---
+for x in list:
+    print(x)
+---
+for i in range(len(list)):
+    print(list[i])
+---
+i = 0
+while i < len(list):
+    print(list[i])
+    i += 1
+---
+if x < 0:
+    print('negative')
+elif x == 0:
+    print('zero')
+else:
+    print('positive')
+---
+with open('foo.txt', 'w') as f:
+    for word in words:
+        f.write(word + '\n')
+---
+isEven = lambda n: n % 2 == 0
+---
+def isEven(n):
+    return n % 2 == 0
+---
+def testCollatz(self):
+    self.assertEqual(22, collatz(7))
+---
+import unittest
+class TestCase(unittest.TestCase):
+    def testEvenRand(self):
+        assertTrue(evenRand() % 2 == 0)
+---
+import unittest
+class TestCase(unittest.TestCase):
+    def testRandBuzz(self):
+        result = randBuzz()
+        self.assertTrue(result > 0 or result == 'buzz')
+---
+a = [[[None] * 10] * 10]
+---
+list1 = [1, 2, [3, 4]]
+list2 = list1[:]
+list1[0] = 5
+list2[2][0] = 6
+print(list1, list2)
+# Output:
+# [5, 2, [6, 4]] [1, 2, [6, 4]]
+---
+list = [1, 2, 3]
+list = list.append('3')
+print(list)
+# Output:
+# None
+---
+a = [1, 2, 3]
+b = [1, 2, 3]
+print(a == b, a is b)
+# Output:
+# True False
+---
+def mystery(list):
+    if len(list) == 1:
+        return list[0]
+    else:
+        return mystery(list[1:])
+# The function returns the last value in the input list.  The list itself is not
+# changed.
+---
+class Robot:
+    def bark(self):
+        print('Bark')
+
+class Dogbot(Robot):
+    def bark(self):
+        print('Robotic bark')
+---
+Recursion:
+The act of a function [method] calling itself.
+---
+Side effect:
+A change that occurs in addition to the obvious effect.  For functions
+[methods], this refers to any effect the function has beyond returning a
+value.
+---
+Dynamic programming:
+Never compute anything until you need to, then remember it for use in new
+computations.
+---
+Magic number:
+A number appearing in code with no obvious interpretation.
+---
+Encapsulation:
+A.k.a. information hiding; not using the internal variables and methods of a
+class or module from outside that class.
+---
+Refactoring:
+Rewriting code without changing its functionality, usually to make it more
+readable or generally useful.

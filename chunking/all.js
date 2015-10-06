@@ -300,7 +300,7 @@ var Main = React.createClass({
     }
 });
 
-Promise.all(['variables', 'if-statements', 'dictionaries'].map(function (name) {
+Promise.all(['variables', 'if-statements', 'dictionaries', 'midterm'].map(function (name) {
     return xr.get('./' + name + '.txt', {}, {
         load: function load(data) {
             return {
