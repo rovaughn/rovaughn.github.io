@@ -230,7 +230,7 @@ var Main = React.createClass({
                                 };
 
                                 var changeInput = function changeInput(e) {
-                                    if (e.target.value === exercise) {
+                                    if (e.target.value.replace(/\r/g, '') === exercise.replace(/\r/g, '')) {
                                         _this.replaceState(_State({
                                             workbooks: workbooks,
                                             substate: _InWorkbook({
