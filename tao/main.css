@@ -1,0 +1,25 @@
+
+body {
+    font-family: "Palatino Linotype", serif;
+    color:       #111;
+    font-size:   15px;
+    line-height: 22px; /* 1.48 * font-size */
+}
+
+#main {
+    margin: auto;
+    width: 350px;
+}
+
+.number {
+    font-weight: bold;
+}
+
+.tao {
+    text-rendering: optimizeLegibility;
+}
+
+.controls {
+    text-align: center;
+}
+
