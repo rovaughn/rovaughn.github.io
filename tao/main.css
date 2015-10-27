@@ -19,7 +19,16 @@ body {
     text-rendering: optimizeLegibility;
 }
 
-.controls {
+ul.controls {
     text-align: center;
+    display: block;
+    margin: 0;
+    padding: 10px 0;
+}
+
+.controls li {
+    list-style-type: none;
+    display: inline-block;
+    padding: 0px 10px;
 }
 
