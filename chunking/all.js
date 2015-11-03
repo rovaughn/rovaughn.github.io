@@ -1,36 +1,36 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
-
 var _tag = require('./tag');
 
 var _tag2 = _interopRequireDefault(_tag);
 
-var Congratulate = _tag2['default'].define('Congratulate');
-var ShowWorkbooks = _tag2['default'].define('ShowWorkbooks');
-var ShowExercise = _tag2['default'].define('ShowExercise');
-var ShowInput = _tag2['default'].define('ShowInput');
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var _DoingExercise = _tag2['default'].define('DoingExercise', {
-    input: _tag2['default'].string,
-    flip: _tag2['default'].oneOf(ShowExercise, ShowInput)
+var Congratulate = _tag2.default.define('Congratulate');
+var ShowWorkbooks = _tag2.default.define('ShowWorkbooks');
+var ShowExercise = _tag2.default.define('ShowExercise');
+var ShowInput = _tag2.default.define('ShowInput');
+
+var _DoingExercise = _tag2.default.define('DoingExercise', {
+    input: _tag2.default.string,
+    flip: _tag2.default.oneOf(ShowExercise, ShowInput)
 });
-var _InWorkbook = _tag2['default'].define('InWorkbook', {
-    currentWorkbook: _tag2['default'].number,
-    currentExercise: _tag2['default'].number,
-    view: _tag2['default'].oneOf(_DoingExercise, Congratulate)
+var _InWorkbook = _tag2.default.define('InWorkbook', {
+    currentWorkbook: _tag2.default.number,
+    currentExercise: _tag2.default.number,
+    view: _tag2.default.oneOf(_DoingExercise, Congratulate)
 });
 
 var Workbook = {
-    name: _tag2['default'].string,
-    exercises: _tag2['default'].arrayOf(_tag2['default'].string),
-    completed: _tag2['default'].number
+    name: _tag2.default.string,
+    exercises: _tag2.default.arrayOf(_tag2.default.string),
+    completed: _tag2.default.number
 };
 
-var _State = _tag2['default'].define('State', {
-    workbooks: _tag2['default'].arrayOf(Workbook),
-    substate: _tag2['default'].oneOf(ShowWorkbooks, _InWorkbook)
+var _State = _tag2.default.define('State', {
+    workbooks: _tag2.default.arrayOf(Workbook),
+    substate: _tag2.default.oneOf(ShowWorkbooks, _InWorkbook)
 });
 
 function mapObject(o, f) {
@@ -41,8 +41,6 @@ function mapObject(o, f) {
 
 // A textarea that does nice things like supports tab.
 var Editor = React.createClass({
-    displayName: 'Editor',
-
     inputKeyDown: function inputKeyDown(e) {
         if (e.keyCode === 9) {
             var val = e.target.value,
@@ -56,7 +54,6 @@ var Editor = React.createClass({
             return false;
         }
     },
-
     render: function render() {
         if (this.props.readOnly) {
             return React.createElement('textarea', { ref: 'textarea',
@@ -75,8 +72,6 @@ var Editor = React.createClass({
 });
 
 var Main = React.createClass({
-    displayName: 'Main',
-
     getInitialState: function getInitialState() {
         return _State({
             workbooks: this.props.workbooks,
@@ -300,7 +295,7 @@ var Main = React.createClass({
     }
 });
 
-Promise.all(['variables', 'if-statements', 'dictionaries', 'midterm'].map(function (name) {
+Promise.all(['variables', 'if-statements', 'dictionaries', 'midterm', 'java-fractions'].map(function (name) {
     return xr.get('./' + name + '.txt', {}, {
         load: function load(data) {
             return {
