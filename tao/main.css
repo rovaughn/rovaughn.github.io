@@ -6,6 +6,10 @@ body {
     line-height: 22px; /* 1.48 * font-size */
 }
 
+a:hover {
+    text-decoration: underline;
+}
+
 #main {
     margin: auto;
     width: 350px;
