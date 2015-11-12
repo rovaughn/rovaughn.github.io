@@ -23,15 +23,16 @@ function format(lines) {
 
     paragraphs.push(paragraph);
 
-    return paragraphs.map((paragraph)=> {
+    return paragraphs.map((paragraph, i)=> {
         let pieces = [];
 
-        for (let line of paragraph) {
-            pieces.push(line);
-            pieces.push(<br/>);
+        for (let j in paragraph) {
+            let line = paragraph[j];
+            pieces.push(<span key={j}>{line}</span>);
+            pieces.push(<br key={`${j}-br}`}/>);
         }
 
-        return <p>{pieces}</p>;
+        return <p key={i}>{pieces}</p>;
     });
 }
 
@@ -53,10 +54,6 @@ class Main extends Component {
         </div>;
     }
 }
-
-document.onkeypress = function(e) {
-    console.log(e.which);
-};
 
 window.main = render(
     <Router>
