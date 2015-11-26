@@ -1,0 +1,63 @@
+
+body {
+  font-family: sans-serif;
+}
+
+.odd-row {
+  background-color: #dedede;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+a {
+  text-decoration: none;
+}
+
+.main {
+  width: 650px;
+  margin: auto;
+}
+
+.answer a {
+  padding: 5px;
+  color: white;
+}
+
+#very-disagree {
+  background-color: #a00;
+}
+
+#disagree {
+  background-color: #a50;
+}
+
+#neither {
+  background-color: #aa0;
+}
+
+#agree {
+  background-color: #5a0;
+}
+
+#very-agree {
+  background-color: #0a0;
+}
+
+.num {
+  text-align: right;
+}
+
+#result-facets td {
+  padding: 7px;
+}
+
+.faint {
+  color: #555;
+}
+
+p {
+  font-size: 16px;
+  line-height: 1.6em;
+}
