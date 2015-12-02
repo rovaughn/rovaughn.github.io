@@ -19,6 +19,9 @@ with open('tao.txt') as f:
         else:
             gathered.append(line.strip())
 
+    if len(gathered) > 0:
+        result.append(gathered)
+
 with open('tao.6.js', 'w') as f:
     f.write('export default ')
     json.dump(result, f)
