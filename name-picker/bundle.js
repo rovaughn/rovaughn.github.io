@@ -1,12 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var natural = require('natural');
-var h = require('virtual-dom/h');
-var diff = require('virtual-dom/diff');
-var patch = require('virtual-dom/patch');
-var createElement = require('virtual-dom/create-element');
-//var lcs = require('longest-common-substring');
 
-function longestCommonSubstring(str1, str2){
+module.exports =function longestCommonSubstring(str1, str2){
     if (!str1 || !str2)
         return {
             length: 0,
@@ -65,43 +59,54 @@ function longestCommonSubstring(str1, str2){
         offset: thisSubsBegin
     };
 }
+ 
 
-var either = male.concat(female);
+},{}],2:[function(require,module,exports){
+var natural = require('natural');
+var h = require('virtual-dom/h');
+var diff = require('virtual-dom/diff');
+var patch = require('virtual-dom/patch');
+var createElement = require('virtual-dom/create-element');
+var lcs = require('./lcs');
+
+var lists = ['Male', 'Female', 'Pokemon'];
+
+var listmemo = {};
 var scorememo = {};
 var query  = 'charmander charmeleon charizard';
-var gender = 'Either';
-var tree   = render(query, gender);
+var chosen_lists = new Set();
+var tree   = render();
 var rootNode = createElement(tree);
 
 document.body.appendChild(rootNode);
 
+function load_list(name, done) {
+    if (listmemo[name]) {
+        return listmemo[name];
+    }
+
+    var req = new XMLHttpRequest();
+
+    req.open('GET', '/' + name + '.json', false);
+    req.send(null);
+
+    if (req.status === 200) {
+        return listmemo[name] = JSON.parse(req.responseText);
+    } else {
+        throw new Error('SJAX failed');
+    }
+}
+
 function update() {
-    var newTree = render(query, gender);
+    var newTree = render();
     var patches = diff(tree, newTree);
 
     rootNode = patch(rootNode, patches);
     tree     = newTree;
 }
 
-function radioset(name, items, value, onChange) {
-    var children = [];
-
-    return h('ul', {className: 'radioset'}, items.map(function(item) {
-        return h('li', [
-            h('input', {
-                type:     'radio',
-                name:     name,
-                checked:  value === item,
-                value:    item,
-                onchange: onChange
-            }),
-            h('label', item)
-        ]);
-    }));
-}
-
 function render() {
-    var pieces = query.split(/\s+/).filter(function(str) {
+    var pieces = query.toLowerCase().split(/\s+/).filter(function(str) {
         return str != '';
     });
     var queryChange = function(e) {
@@ -109,16 +114,28 @@ function render() {
         scorememo = {};
         update();
     };
-    var genderChange = function(e) {
-        gender = e.target.value;
-        update();
-    };
 
     var results = pieces.length > 0 && rank_results(pieces);
 
     return h('div', [
         h('input', {type: 'text', value: query, onchange: queryChange}),
-        radioset('gender', ['Either', 'Male', 'Female'], gender, genderChange),
+        h('ul', {className: 'radioset'}, lists.map(function(list) {
+            return h('li', [
+                h('input', {
+                    type: 'checkbox',
+                    checked: chosen_lists.has(list),
+                    onchange: function(e) {
+                        if (e.target.checked) {
+                            chosen_lists.add(list);
+                        } else {
+                            chosen_lists.delete(list);
+                        }
+                        update();
+                    }
+                }),
+                h('label', list)
+            ]);
+        })),
         results ?
         h('ol', results.map(function(item) {
             return h('li', item);
@@ -132,7 +149,7 @@ function score(targets, name) {
     var metanames = natural.DoubleMetaphone.process(name);
 
     for (var i = 0; i < targets.length; i++) {
-        total += longestCommonSubstring(targets[i], name).length/targets[i].length;
+        total += lcs(targets[i], name).length/targets[i].length;
         total += natural.JaroWinklerDistance(targets[i], name);
         for (var j = 0; j < metanames.length; j++) {
             total += natural.JaroWinklerDistance(targets[i], metanames[j])/metanames.length;
@@ -143,17 +160,11 @@ function score(targets, name) {
 }
 
 function rank_results(targets) {
-    var names;
+    var names = [];
 
-    if (gender === 'Male') {
-        names = male;
-    } else if (gender === 'Female') {
-        names = female;
-    } else if (gender === 'Either') {
-        names = either;
-    } else {
-        console.error('Gender is', gender);
-    }
+    chosen_lists.forEach(function(list) {
+        names = names.concat(load_list(list));
+    });
 
     names.sort(function(a, b) {
         if (!scorememo[a]) { scorememo[a] = score(targets, a); }
@@ -166,7 +177,7 @@ function rank_results(targets) {
 }
 
 
-},{"natural":51,"virtual-dom/create-element":138,"virtual-dom/diff":139,"virtual-dom/h":140,"virtual-dom/patch":141}],2:[function(require,module,exports){
+},{"./lcs":1,"natural":52,"virtual-dom/create-element":139,"virtual-dom/diff":140,"virtual-dom/h":141,"virtual-dom/patch":142}],3:[function(require,module,exports){
 (function (__dirname){
 
 exports.version = "3.1";	// this is the WordNet DB version
@@ -174,7 +185,7 @@ exports.path = require('path').join(__dirname, "dict");
 exports.files = require('fs').readdirSync(exports.path);
 
 }).call(this,"/node_modules/WNdb")
-},{"fs":13,"path":124}],3:[function(require,module,exports){
+},{"fs":14,"path":125}],4:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -307,7 +318,7 @@ BayesClassifier.prototype.probabilityOfClass = probabilityOfClass;
 BayesClassifier.restore = restore;
 
 module.exports = BayesClassifier;
-},{"./classifier":4,"util":137}],4:[function(require,module,exports){
+},{"./classifier":5,"util":138}],5:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -363,7 +374,7 @@ Classifier.restore = restore;
 
 module.exports = Classifier;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -557,7 +568,7 @@ LogisticRegressionClassifier.restore = restore;
 
 module.exports = LogisticRegressionClassifier;
 
-},{"./classifier":4,"sylvester":128,"util":137}],6:[function(require,module,exports){
+},{"./classifier":5,"sylvester":129,"util":138}],7:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -677,13 +688,13 @@ KMeans.prototype.cluster = cluster;
 
 module.exports = KMeans;
 
-},{"sylvester":128}],7:[function(require,module,exports){
+},{"sylvester":129}],8:[function(require,module,exports){
 
 exports.BayesClassifier = require('./classifier/bayes_classifier');
 exports.LogisticRegressionClassifier = require('./classifier/logistic_regression_classifier');
 exports.KMeans = require('./clusterer/kmeans');
 
-},{"./classifier/bayes_classifier":3,"./classifier/logistic_regression_classifier":5,"./clusterer/kmeans":6}],8:[function(require,module,exports){
+},{"./classifier/bayes_classifier":4,"./classifier/logistic_regression_classifier":6,"./clusterer/kmeans":7}],9:[function(require,module,exports){
 // http://wiki.commonjs.org/wiki/Unit_Testing/1.0
 //
 // THIS IS NOT TESTED NOR LIKELY TO WORK OUTSIDE V8!
@@ -1044,7 +1055,7 @@ var objectKeys = Object.keys || function (obj) {
   return keys;
 };
 
-},{"util/":137}],9:[function(require,module,exports){
+},{"util/":138}],10:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -1170,7 +1181,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 (function (process,__filename){
 
 /**
@@ -1340,9 +1351,9 @@ exports.getRoot = function getRoot (file) {
 }
 
 }).call(this,require('_process'),"/node_modules/bindings/bindings.js")
-},{"_process":125,"fs":13,"path":124}],11:[function(require,module,exports){
+},{"_process":126,"fs":14,"path":125}],12:[function(require,module,exports){
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /*!
  * Cross-Browser Split 1.1.1
  * Copyright 2007-2012 Steven Levithan <stevenlevithan.com>
@@ -1450,9 +1461,9 @@ module.exports = (function split(undef) {
   return self;
 })();
 
-},{}],13:[function(require,module,exports){
-arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],14:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
+arguments[4][12][0].apply(exports,arguments)
+},{"dup":12}],15:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -3000,14 +3011,14 @@ function blitBuffer (src, dst, offset, length) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":9,"ieee754":34,"isarray":15}],15:[function(require,module,exports){
+},{"base64-js":10,"ieee754":35,"isarray":16}],16:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -3177,7 +3188,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":17}],17:[function(require,module,exports){
+},{"./debug":18}],18:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3376,7 +3387,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":43}],18:[function(require,module,exports){
+},{"ms":44}],19:[function(require,module,exports){
 'use strict';
 
 var OneVersionConstraint = require('individual/one-version');
@@ -3398,7 +3409,7 @@ function EvStore(elem) {
     return hash;
 }
 
-},{"individual/one-version":36}],19:[function(require,module,exports){
+},{"individual/one-version":37}],20:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -3698,7 +3709,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 (function (process,Buffer){
 
 /**
@@ -3824,11 +3835,11 @@ function ForeignFunction (cif, funcPtr, returnType, argTypes) {
 module.exports = ForeignFunction
 
 }).call(this,require('_process'),require("buffer").Buffer)
-},{"./bindings":21,"_process":125,"assert":8,"buffer":14,"debug":16,"ref":127}],21:[function(require,module,exports){
+},{"./bindings":22,"_process":126,"assert":9,"buffer":15,"debug":17,"ref":128}],22:[function(require,module,exports){
 
 module.exports = require('bindings')('ffi_bindings.node')
 
-},{"bindings":10}],22:[function(require,module,exports){
+},{"bindings":11}],23:[function(require,module,exports){
 (function (process){
 
 /**
@@ -3916,7 +3927,7 @@ function Callback (retType, argTypes, abi, func) {
 module.exports = Callback
 
 }).call(this,require('_process'))
-},{"./bindings":21,"./cif":23,"_process":125,"assert":8,"debug":16,"ref":127}],23:[function(require,module,exports){
+},{"./bindings":22,"./cif":24,"_process":126,"assert":9,"debug":17,"ref":128}],24:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -3999,7 +4010,7 @@ function CIF (rtype, types, abi) {
 module.exports = CIF
 
 }).call(this,require("buffer").Buffer)
-},{"./bindings":21,"./type":32,"assert":8,"buffer":14,"debug":16,"ref":127}],24:[function(require,module,exports){
+},{"./bindings":22,"./type":33,"assert":9,"buffer":15,"debug":17,"ref":128}],25:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4083,7 +4094,7 @@ function CIF_var (rtype, types, numFixedArgs, abi) {
 module.exports = CIF_var
 
 }).call(this,require("buffer").Buffer)
-},{"./bindings":21,"./type":32,"assert":8,"buffer":14,"debug":16,"ref":127}],25:[function(require,module,exports){
+},{"./bindings":22,"./type":33,"assert":9,"buffer":15,"debug":17,"ref":128}],26:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4214,7 +4225,7 @@ DynamicLibrary.prototype.error = function error () {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":38,"./bindings":21,"./foreign_function":28,"assert":8,"debug":16,"fs":13,"ref":127}],26:[function(require,module,exports){
+},{"../../is-buffer/index.js":39,"./bindings":22,"./foreign_function":29,"assert":9,"debug":17,"fs":14,"ref":128}],27:[function(require,module,exports){
 (function (process){
 
 /**
@@ -4255,7 +4266,7 @@ function errno () {
 module.exports = errno
 
 }).call(this,require('_process'))
-},{"./dynamic_library":25,"./foreign_function":28,"_process":125,"ref":127}],27:[function(require,module,exports){
+},{"./dynamic_library":26,"./foreign_function":29,"_process":126,"ref":128}],28:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -4347,7 +4358,7 @@ exports.LIB_EXT = exports.Library.EXT
 // the FFI_TYPE struct definition
 exports.FFI_TYPE = exports.ffiType.FFI_TYPE
 
-},{"./bindings":21,"./callback":22,"./cif":23,"./cif_var":24,"./dynamic_library":25,"./errno":26,"./foreign_function":28,"./foreign_function_var":29,"./function":30,"./library":31,"./type":32,"assert":8,"debug":16,"ref":127,"ref-struct":126}],28:[function(require,module,exports){
+},{"./bindings":22,"./callback":23,"./cif":24,"./cif_var":25,"./dynamic_library":26,"./errno":27,"./foreign_function":29,"./foreign_function_var":30,"./function":31,"./library":32,"./type":33,"assert":9,"debug":17,"ref":128,"ref-struct":127}],29:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4389,7 +4400,7 @@ function ForeignFunction (funcPtr, returnType, argTypes, abi) {
 module.exports = ForeignFunction
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":38,"./_foreign_function":20,"./cif":23,"assert":8,"debug":16,"ref":127}],29:[function(require,module,exports){
+},{"../../is-buffer/index.js":39,"./_foreign_function":21,"./cif":24,"assert":9,"debug":17,"ref":128}],30:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4495,7 +4506,7 @@ function getId (type) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":38,"./_foreign_function":20,"./bindings":21,"./cif_var":24,"./type":32,"assert":8,"debug":16,"ref":127}],30:[function(require,module,exports){
+},{"../../is-buffer/index.js":39,"./_foreign_function":21,"./bindings":22,"./cif_var":25,"./type":33,"assert":9,"debug":17,"ref":128}],31:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4609,7 +4620,7 @@ Function.prototype.set = function set (buffer, offset, value) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":38,"./bindings":21,"./callback":22,"./foreign_function":28,"assert":8,"debug":16,"ref":127}],31:[function(require,module,exports){
+},{"../../is-buffer/index.js":39,"./bindings":22,"./callback":23,"./foreign_function":29,"assert":9,"debug":17,"ref":128}],32:[function(require,module,exports){
 (function (process){
 
 /**
@@ -4688,7 +4699,7 @@ function Library (libfile, funcs, lib) {
 module.exports = Library
 
 }).call(this,require('_process'))
-},{"./dynamic_library":25,"./foreign_function":28,"./foreign_function_var":29,"_process":125,"debug":16}],32:[function(require,module,exports){
+},{"./dynamic_library":26,"./foreign_function":29,"./foreign_function_var":30,"_process":126,"debug":17}],33:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -4821,7 +4832,7 @@ function Type (type) {
 module.exports = Type
 
 }).call(this,require("buffer").Buffer)
-},{"./bindings":21,"assert":8,"buffer":14,"debug":16,"ref":127,"ref-struct":126}],33:[function(require,module,exports){
+},{"./bindings":22,"assert":9,"buffer":15,"debug":17,"ref":128,"ref-struct":127}],34:[function(require,module,exports){
 (function (global){
 var topLevel = typeof global !== 'undefined' ? global :
     typeof window !== 'undefined' ? window : {}
@@ -4840,7 +4851,7 @@ if (typeof document !== 'undefined') {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"min-document":11}],34:[function(require,module,exports){
+},{"min-document":12}],35:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -4926,7 +4937,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -4949,7 +4960,7 @@ function Individual(key, value) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 var Individual = require('./index.js');
@@ -4973,7 +4984,7 @@ function OneVersion(moduleName, version, defaultValue) {
     return Individual(key, defaultValue);
 }
 
-},{"./index.js":35}],37:[function(require,module,exports){
+},{"./index.js":36}],38:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -4998,7 +5009,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 /**
  * Determine if an object is Buffer
  *
@@ -5017,14 +5028,14 @@ module.exports = function (obj) {
     ))
 }
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 "use strict";
 
 module.exports = function isObject(x) {
 	return typeof x === "object" && x !== null;
 };
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Chris Umbel
@@ -5099,7 +5110,7 @@ module.exports.jsMatrixToFortranArray = jsMatrixToFortranArray;
 module.exports.fortranArrayToJSArray = fortranArrayToJSArray;
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":14,"ffi":27}],41:[function(require,module,exports){
+},{"buffer":15,"ffi":28}],42:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -5132,7 +5143,7 @@ exports.lu = lapack.lu;
 exports.sgetrf = lapack.sgetrf;
 exports.sgesv = lapack.sgesv;
 
-},{"./lapack.js":42}],42:[function(require,module,exports){
+},{"./lapack.js":43}],43:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Chris Umbel
@@ -5439,7 +5450,7 @@ exports.qr = qr;
 exports.lu = lu;
 
 }).call(this,require("buffer").Buffer)
-},{"./fortranArray":40,"buffer":14,"ffi":27}],43:[function(require,module,exports){
+},{"./fortranArray":41,"buffer":15,"ffi":28}],44:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -5566,7 +5577,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],44:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 /*
 Copyright (c) 2011, Rob Ellis, Chris Umbel
 
@@ -5744,7 +5755,7 @@ Sentences.prototype.type = function(callback) {
 
 module.exports = Sentences;
 
-},{"underscore":135}],45:[function(require,module,exports){
+},{"underscore":136}],46:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -5804,7 +5815,7 @@ BayesClassifier.load = load;
 
 module.exports = BayesClassifier;
 
-},{"../stemmers/porter_stemmer":72,"./classifier":46,"apparatus":7,"util":137}],46:[function(require,module,exports){
+},{"../stemmers/porter_stemmer":73,"./classifier":47,"apparatus":8,"util":138}],47:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -5973,7 +5984,7 @@ Classifier.load = load;
 
 module.exports = Classifier;
 
-},{"../stemmers/porter_stemmer":72,"events":19,"fs":13,"util":137}],47:[function(require,module,exports){
+},{"../stemmers/porter_stemmer":73,"events":20,"fs":14,"util":138}],48:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -6035,7 +6046,7 @@ LogisticRegressionClassifier.load = load;
 
 module.exports = LogisticRegressionClassifier;
 
-},{"../stemmers/porter_stemmer":72,"./classifier":46,"apparatus":7,"util":137}],48:[function(require,module,exports){
+},{"../stemmers/porter_stemmer":73,"./classifier":47,"apparatus":8,"util":138}],49:[function(require,module,exports){
 /*
 Copyright (c) 2011, John Crepezzi, Chris Umbel
 
@@ -6106,7 +6117,7 @@ var compare = function (str1, str2) {
 
 module.exports = compare;
 
-},{}],49:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 /*
 Copyright (c) 2012, Adam Phillabaum, Chris Umbel
 
@@ -6224,7 +6235,7 @@ function JaroWinklerDistance(s1, s2, dj) {
 }
 module.exports = JaroWinklerDistance;
 
-},{}],50:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 /*
 Copyright (c) 2012, Sid Nallu, Chris Umbel
 
@@ -6294,7 +6305,7 @@ function LevenshteinDistance (source, target, options) {
 
 module.exports = LevenshteinDistance;
 
-},{}],51:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -6371,7 +6382,7 @@ exports.normalize_ja = require('./normalizers/normalizer_ja').normalize_ja;
 exports.removeDiacritics = require('./normalizers/remove_diacritics');
 exports.transliterate_ja = require('./transliterators/ja');
 
-},{"./analyzers/sentence_analyzer":44,"./classifiers/bayes_classifier":45,"./classifiers/logistic_regression_classifier":47,"./distance/dice_coefficient":48,"./distance/jaro-winkler_distance":49,"./distance/levenshtein_distance":50,"./inflectors/count_inflector":52,"./inflectors/fr/noun_inflector":54,"./inflectors/ja/noun_inflector":55,"./inflectors/noun_inflector":56,"./inflectors/present_verb_inflector":57,"./ngrams/ngrams":59,"./ngrams/ngrams_zh":60,"./normalizers/normalizer":61,"./normalizers/normalizer_ja":62,"./normalizers/remove_diacritics":64,"./phonetics/dm_soundex":65,"./phonetics/double_metaphone":66,"./phonetics/metaphone":67,"./phonetics/soundex":69,"./stemmers/lancaster_stemmer":71,"./stemmers/porter_stemmer":72,"./stemmers/porter_stemmer_es":73,"./stemmers/porter_stemmer_fa":74,"./stemmers/porter_stemmer_fr":75,"./stemmers/porter_stemmer_it":76,"./stemmers/porter_stemmer_no":77,"./stemmers/porter_stemmer_ru":78,"./stemmers/stemmer_fr":82,"./stemmers/stemmer_ja":84,"./stemmers/stemmer_pl":86,"./tfidf/tfidf":88,"./tokenizers/aggressive_tokenizer":89,"./tokenizers/aggressive_tokenizer_es":90,"./tokenizers/aggressive_tokenizer_fa":91,"./tokenizers/aggressive_tokenizer_it":93,"./tokenizers/aggressive_tokenizer_nl":94,"./tokenizers/aggressive_tokenizer_no":95,"./tokenizers/aggressive_tokenizer_pl":96,"./tokenizers/aggressive_tokenizer_pt":97,"./tokenizers/aggressive_tokenizer_ru":98,"./tokenizers/regexp_tokenizer":99,"./tokenizers/tokenizer_ja":101,"./tokenizers/treebank_word_tokenizer":102,"./transliterators/ja":103,"./trie/trie":104,"./util/edge_weighted_digraph":106,"./util/longest_path_tree":107,"./util/shortest_path_tree":108,"./util/stopwords":109,"./wordnet/wordnet":122}],52:[function(require,module,exports){
+},{"./analyzers/sentence_analyzer":45,"./classifiers/bayes_classifier":46,"./classifiers/logistic_regression_classifier":48,"./distance/dice_coefficient":49,"./distance/jaro-winkler_distance":50,"./distance/levenshtein_distance":51,"./inflectors/count_inflector":53,"./inflectors/fr/noun_inflector":55,"./inflectors/ja/noun_inflector":56,"./inflectors/noun_inflector":57,"./inflectors/present_verb_inflector":58,"./ngrams/ngrams":60,"./ngrams/ngrams_zh":61,"./normalizers/normalizer":62,"./normalizers/normalizer_ja":63,"./normalizers/remove_diacritics":65,"./phonetics/dm_soundex":66,"./phonetics/double_metaphone":67,"./phonetics/metaphone":68,"./phonetics/soundex":70,"./stemmers/lancaster_stemmer":72,"./stemmers/porter_stemmer":73,"./stemmers/porter_stemmer_es":74,"./stemmers/porter_stemmer_fa":75,"./stemmers/porter_stemmer_fr":76,"./stemmers/porter_stemmer_it":77,"./stemmers/porter_stemmer_no":78,"./stemmers/porter_stemmer_ru":79,"./stemmers/stemmer_fr":83,"./stemmers/stemmer_ja":85,"./stemmers/stemmer_pl":87,"./tfidf/tfidf":89,"./tokenizers/aggressive_tokenizer":90,"./tokenizers/aggressive_tokenizer_es":91,"./tokenizers/aggressive_tokenizer_fa":92,"./tokenizers/aggressive_tokenizer_it":94,"./tokenizers/aggressive_tokenizer_nl":95,"./tokenizers/aggressive_tokenizer_no":96,"./tokenizers/aggressive_tokenizer_pl":97,"./tokenizers/aggressive_tokenizer_pt":98,"./tokenizers/aggressive_tokenizer_ru":99,"./tokenizers/regexp_tokenizer":100,"./tokenizers/tokenizer_ja":102,"./tokenizers/treebank_word_tokenizer":103,"./transliterators/ja":104,"./trie/trie":105,"./util/edge_weighted_digraph":107,"./util/longest_path_tree":108,"./util/shortest_path_tree":109,"./util/stopwords":110,"./wordnet/wordnet":123}],53:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -6427,7 +6438,7 @@ CountInflector.nth = nth;
 
 module.exports = CountInflector;
 
-},{}],53:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -6457,7 +6468,7 @@ var FormSet = function() {
 
 module.exports = FormSet;
 
-},{}],54:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -6694,7 +6705,7 @@ util.inherits(NounInflector, SingularPluralInflector);
 
 module.exports = NounInflector;
 
-},{"../form_set":53,"../singular_plural_inflector":58,"util":137}],55:[function(require,module,exports){
+},{"../form_set":54,"../singular_plural_inflector":59,"util":138}],56:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -6831,7 +6842,7 @@ util.inherits(NounInflector, SingularPluralInflector);
 
 module.exports = NounInflector;
 
-},{"../form_set":53,"../singular_plural_inflector":58,"util":137}],56:[function(require,module,exports){
+},{"../form_set":54,"../singular_plural_inflector":59,"util":138}],57:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -6938,7 +6949,7 @@ util.inherits(NounInflector, SingularPluralInflector);
     
 module.exports = NounInflector;
 
-},{"./form_set":53,"./singular_plural_inflector":58,"util":137}],57:[function(require,module,exports){
+},{"./form_set":54,"./singular_plural_inflector":59,"util":138}],58:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -7015,7 +7026,7 @@ util.inherits(VerbInflector, SingularPluralInflector);
 
 module.exports = VerbInflector;
 
-},{"./form_set":53,"./singular_plural_inflector":58,"util":137}],58:[function(require,module,exports){
+},{"./form_set":54,"./singular_plural_inflector":59,"util":138}],59:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -7126,7 +7137,7 @@ TenseInflector.prototype.izeRegExps = function(token, forms) {
 
 module.exports = TenseInflector;
 
-},{}],59:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 /*
 Copyright (c) 2011, Rob Ellis, Chris Umbel
 
@@ -7219,7 +7230,7 @@ var ngrams = function(sequence, n, startSymbol, endSymbol) {
 }
 
 
-},{"../tokenizers/regexp_tokenizer":99,"underscore":135}],60:[function(require,module,exports){
+},{"../tokenizers/regexp_tokenizer":100,"underscore":136}],61:[function(require,module,exports){
 /*
 Copyright (c) 2014, Lee Wenzhu
 
@@ -7304,7 +7315,7 @@ var ngrams = function(sequence, n, startSymbol, endSymbol) {
 };
 
 
-},{"underscore":135}],61:[function(require,module,exports){
+},{"underscore":136}],62:[function(require,module,exports){
 /*
  Copyright (c) 2013, Kenneth Koch
 
@@ -7401,7 +7412,7 @@ exports.normalize_tokens = normalize_tokens;
 
 
 
-},{"../util/utils":119}],62:[function(require,module,exports){
+},{"../util/utils":120}],63:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -8027,7 +8038,7 @@ var normalize_ja = function(str) {
 exports.normalize_ja = normalize_ja;
 exports.converters = converters;
 
-},{"../util/utils":119,"../util/utils.js":119}],63:[function(require,module,exports){
+},{"../util/utils":120,"../util/utils.js":120}],64:[function(require,module,exports){
 /*
  Copyright (c) 2014, Kristoffer Brabrand
 
@@ -8087,7 +8098,7 @@ var remove_diacritics = function(text) {
 
 // export the relevant stuff.
 exports.remove_diacritics = remove_diacritics;
-},{}],64:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 /*
  Copyright (c) 2012, Alexy Maslennikov
 
@@ -8210,7 +8221,7 @@ module.exports = function(str) {
 	return str;
 };
 
-},{}],65:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 /*
 Copyright (c) 2012, Alexy Maslenninkov
 
@@ -8459,7 +8470,7 @@ soundex.process = process;
 module.exports = soundex;
 
 
-},{"./phonetic":68}],66:[function(require,module,exports){
+},{"./phonetic":69}],67:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -8972,7 +8983,7 @@ DoubleMetaphone.compare = compare
 DoubleMetaphone.process = process;
 DoubleMetaphone.isVowel = isVowel;
 
-},{"./phonetic":68}],67:[function(require,module,exports){
+},{"./phonetic":69}],68:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -9166,7 +9177,7 @@ Metaphone.dropY = dropY;
 Metaphone.transformZ = transformZ;
 Metaphone.dropVowels = dropVowels;
 
-},{"./phonetic":68}],68:[function(require,module,exports){
+},{"./phonetic":69}],69:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -9222,7 +9233,7 @@ module.exports = function() {
     };
 };
 
-},{"../tokenizers/aggressive_tokenizer":89,"../util/stopwords":109}],69:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer":90,"../util/stopwords":110}],70:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -9308,7 +9319,7 @@ SoundEx.transformR = transformR;
 SoundEx.condense = condense;
 SoundEx.padRight0 = padRight0;
 
-},{"./phonetic":68}],70:[function(require,module,exports){
+},{"./phonetic":69}],71:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -10100,7 +10111,7 @@ exports.rules = {
 };
 
 
-},{}],71:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -10176,7 +10187,7 @@ module.exports = LancasterStemmer;
 LancasterStemmer.stem = function(token) {
     return applyRuleSection(token.toLowerCase(), true);
 }
-},{"./lancaster_rules":70,"./stemmer":79}],72:[function(require,module,exports){
+},{"./lancaster_rules":71,"./stemmer":80}],73:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -10411,7 +10422,7 @@ PorterStemmer.step4 = step4;
 PorterStemmer.step5a = step5a;
 PorterStemmer.step5b = step5b;
 
-},{"./stemmer":79}],73:[function(require,module,exports){
+},{"./stemmer":80}],74:[function(require,module,exports){
 /*
 Copyright (c) 2012, David Przybilla, Chris Umbel
 
@@ -10634,7 +10645,7 @@ PorterStemmer.stem = function(token) {
 
 };
 
-},{"./stemmer_es":80}],74:[function(require,module,exports){
+},{"./stemmer_es":81}],75:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 Farsi Porter Stemmer by Fardin Koochaki <me@fardinak.com>
@@ -10668,7 +10679,7 @@ module.exports = PorterStemmer;
 PorterStemmer.stem = function(token) {
     return token;
 };
-},{"./stemmer_fa":81}],75:[function(require,module,exports){
+},{"./stemmer_fa":82}],76:[function(require,module,exports){
 'use strict';
 
 /*
@@ -11046,7 +11057,7 @@ function endsin(token, suffix) {
   if (token.length < suffix.length) return false;
   return (token.slice(-suffix.length) == suffix);
 };
-},{"./stemmer_fr":82}],76:[function(require,module,exports){
+},{"./stemmer_fr":83}],77:[function(require,module,exports){
 /*
 Copyright (c) 2012, Leonardo Fenu, Chris Umbel
 
@@ -11280,7 +11291,7 @@ PorterStemmer.stem = function(token) {
 	return token.toLowerCase();
 
 };
-},{"./stemmer_it":83}],77:[function(require,module,exports){
+},{"./stemmer_it":84}],78:[function(require,module,exports){
 /*
 Copyright (c) 2014, Kristoffer Brabrand
 
@@ -11436,7 +11447,7 @@ PorterStemmer.step1b = step1b;
 PorterStemmer.step1c = step1c;
 PorterStemmer.step2  = step2;
 PorterStemmer.step3  = step3;
-},{"./stemmer_no":85}],78:[function(require,module,exports){
+},{"./stemmer_no":86}],79:[function(require,module,exports){
 /*
 Copyright (c) 2012, Polyakov Vladimir, Chris Umbel
 
@@ -11589,7 +11600,7 @@ PorterStemmer.stem = function(token) {
 	return head + superlativeResult;
 };
 
-},{"./stemmer_ru":87}],79:[function(require,module,exports){
+},{"./stemmer_ru":88}],80:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -11652,7 +11663,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer":89,"../util/stopwords":109}],80:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer":90,"../util/stopwords":110}],81:[function(require,module,exports){
 /*
 Copyright (c) 2012, David Przybilla, Chris Umbel
 
@@ -11712,7 +11723,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer_es":90,"../util/stopwords_es":110}],81:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_es":91,"../util/stopwords_es":111}],82:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 Farsi Stemmer by Fardin Koochaki <me@fardinak.com>
@@ -11768,7 +11779,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer_fa":91,"../util/stopwords_fa":111}],82:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_fa":92,"../util/stopwords_fa":112}],83:[function(require,module,exports){
 /*
 Copyright (c) 2014, Ismaël Héry
 
@@ -11828,7 +11839,7 @@ module.exports = function() {
    };
 }
 
-},{"../tokenizers/aggressive_tokenizer_fr":92,"../util/stopwords_fr":112}],83:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_fr":93,"../util/stopwords_fr":113}],84:[function(require,module,exports){
 var stopwords = require('../util/stopwords_it');
 var Tokenizer = require('../tokenizers/aggressive_tokenizer_it');
 
@@ -11865,7 +11876,7 @@ module.exports = function() {
         };
     };
 }
-},{"../tokenizers/aggressive_tokenizer_it":93,"../util/stopwords_it":113}],84:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_it":94,"../util/stopwords_it":114}],85:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -12005,7 +12016,7 @@ StemmerJa.prototype.attach = function() {
 
 module.exports = StemmerJa;
 
-},{"../tokenizers/tokenizer_ja":101,"../util/stopwords_ja":114}],85:[function(require,module,exports){
+},{"../tokenizers/tokenizer_ja":102,"../util/stopwords_ja":115}],86:[function(require,module,exports){
 /*
 Copyright (c) 2014, Kristoffer Brabrand
 
@@ -12068,7 +12079,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer_no":95,"../util/stopwords_no":115}],86:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_no":96,"../util/stopwords_no":116}],87:[function(require,module,exports){
 /*
 Copyright (c) 2013, Paweł Łaskarzewski
 
@@ -12128,7 +12139,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer_pl":96,"../util/stopwords_pl":116}],87:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_pl":97,"../util/stopwords_pl":117}],88:[function(require,module,exports){
 /*
 Copyright (c) 2012, Polyakov Vladimir, Chris Umbel
 
@@ -12188,7 +12199,7 @@ module.exports = function() {
     };
 }
 
-},{"../tokenizers/aggressive_tokenizer_ru":98,"../util/stopwords_ru":117}],88:[function(require,module,exports){
+},{"../tokenizers/aggressive_tokenizer_ru":99,"../util/stopwords_ru":118}],89:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Rob Ellis, Chris Umbel
@@ -12385,7 +12396,7 @@ TfIdf.prototype.setTokenizer = function(t) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"../tokenizers/regexp_tokenizer":99,"../util/stopwords":109,"buffer":14,"fs":13,"underscore":135}],89:[function(require,module,exports){
+},{"../tokenizers/regexp_tokenizer":100,"../util/stopwords":110,"buffer":15,"fs":14,"underscore":136}],90:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -12423,7 +12434,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/\W+/));
 };
 
-},{"./tokenizer":100,"util":137}],90:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],91:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel,David Przybilla
 
@@ -12461,7 +12472,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/[^a-zA-Zá-úÁ-ÚñÑüÜ]+/));
 };
 
-},{"./tokenizer":100,"util":137}],91:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],92:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 Farsi Aggressive Tokenizer by Fardin Koochaki <me@fardinak.com>
@@ -12511,7 +12522,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.clearEmptyString(text.split(/\s+/));
 };
 
-},{"./tokenizer":100,"util":137}],92:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],93:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -12549,7 +12560,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/[^a-z0-9äâàéèëêïîöôùüûœç]+/i));
 };
 
-},{"./tokenizer":100,"util":137}],93:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],94:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel,David Przybilla
 
@@ -12587,7 +12598,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/\W+/));
 };
 
-},{"./tokenizer":100,"util":137}],94:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],95:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel, Martijn de Boer
 
@@ -12625,7 +12636,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/[^a-zA-Z0-9_']+/));
 };
 
-},{"./tokenizer":100,"util":137}],95:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],96:[function(require,module,exports){
 /*
 Copyright (c) 2014, Kristoffer Brabrand
 
@@ -12666,7 +12677,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.trim(text.split(/[^A-Za-z0-9_æøåÆØÅäÄöÖüÜ]+/));
 };
 
-},{"../normalizers/normalizer_no":63,"./tokenizer":100,"util":137}],96:[function(require,module,exports){
+},{"../normalizers/normalizer_no":64,"./tokenizer":101,"util":138}],97:[function(require,module,exports){
 /*
 Copyright (c) 2013, Paweł Łaskarzewski
 
@@ -12713,7 +12724,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.withoutEmpty(this.clearText(text).split(' '));
 };
 
-},{"./tokenizer":100,"util":137}],97:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],98:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel,David Przybilla
 
@@ -12755,7 +12766,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.withoutEmpty(this.trim(text.split(/[^a-zA-Zà-úÀ-Ú]/)));
 };
 
-},{"./tokenizer":100,"util":137}],98:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],99:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -12802,7 +12813,7 @@ AggressiveTokenizer.prototype.tokenize = function(text) {
     return this.withoutEmpty(this.clearText(text).split(' '));
 };
 
-},{"./tokenizer":100,"util":137}],99:[function(require,module,exports){
+},{"./tokenizer":101,"util":138}],100:[function(require,module,exports){
 /*
 Copyright (c) 2011, Rob Ellis, Chris Umbel
 
@@ -12890,7 +12901,7 @@ var WordPunctTokenizer = function(options) {
 util.inherits(WordPunctTokenizer, RegexpTokenizer);
 exports.WordPunctTokenizer = WordPunctTokenizer;
 
-},{"./tokenizer":100,"underscore":135,"util":137}],100:[function(require,module,exports){
+},{"./tokenizer":101,"underscore":136,"util":138}],101:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -12943,7 +12954,7 @@ Tokenizer.prototype.tokenize = function() {};
 
 module.exports = Tokenizer;
 
-},{}],101:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 // Original copyright:
 /*
  Copyright (c) 2008, Taku Kudo
@@ -13222,7 +13233,7 @@ TokenizerJa.prototype.tokenize = function(text) {
 
 module.exports = TokenizerJa;
 
-},{"../normalizers/normalizer_ja":62,"./tokenizer":100,"util":137}],102:[function(require,module,exports){
+},{"../normalizers/normalizer_ja":63,"./tokenizer":101,"util":138}],103:[function(require,module,exports){
 /*
 Copyright (c) 2011, Rob Ellis, Chris Umbel
 
@@ -13298,7 +13309,7 @@ TreebankWordTokenizer.prototype.tokenize = function(text) {
 
 module.exports = TreebankWordTokenizer;
 
-},{"./tokenizer":100,"underscore":135,"util":137}],103:[function(require,module,exports){
+},{"./tokenizer":101,"underscore":136,"util":138}],104:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -13882,7 +13893,7 @@ module.exports = function(str) {
   return str;
 };
 
-},{"../../util/utils":119}],104:[function(require,module,exports){
+},{"../../util/utils":120}],105:[function(require,module,exports){
 /*
 Copyright (c) 2014 Ken Koch
 
@@ -14114,7 +14125,7 @@ Trie.prototype.getSize = function() {
  **/
 module.exports = Trie;
 
-},{}],105:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 /*
  Copyright (c) 2014, Lee Wenzhu
 
@@ -14166,7 +14177,7 @@ Bag.prototype.unpack = function() {
 
 module.exports = Bag;
 
-},{}],106:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 /*
  Copyright (c) 2014, Lee Wenzhu
 
@@ -14280,7 +14291,7 @@ EdgeWeightedDigraph.prototype.toString = function() {
 
 module.exports = EdgeWeightedDigraph;
 
-},{"./bag":105,"util":137}],107:[function(require,module,exports){
+},{"./bag":106,"util":138}],108:[function(require,module,exports){
 /*
  Copyright (c) 2014, Lee Wenzhu
 
@@ -14381,7 +14392,7 @@ LongestPathTree.prototype.pathTo = function(v) {
 
 module.exports = LongestPathTree;
 
-},{"./edge_weighted_digraph":106,"./topological":118}],108:[function(require,module,exports){
+},{"./edge_weighted_digraph":107,"./topological":119}],109:[function(require,module,exports){
 /*
  Copyright (c) 2014, Lee Wenzhu
 
@@ -14483,7 +14494,7 @@ ShortestPathTree.prototype.pathTo = function(v) {
 
 module.exports = ShortestPathTree;
 
-},{"./edge_weighted_digraph":106,"./topological":118}],109:[function(require,module,exports){
+},{"./edge_weighted_digraph":107,"./topological":119}],110:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -14526,7 +14537,7 @@ var words = [
 // tell the world about the noise words.    
 exports.words = words;
 
-},{}],110:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 /*
 Copyright (c) 2011, David Przybilla, Chris Umbel
 
@@ -14564,7 +14575,7 @@ var words = [
 // tell the world about the noise words.    
 exports.words = words;
 
-},{}],111:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 Farsi Stop Words by Fardin Koochaki <me@fardinak.com>
@@ -14604,7 +14615,7 @@ var words = [
 // tell the world about the noise words.    
 exports.words = words;
 
-},{}],112:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 /*
  Copyright (c) 2014, Ismaël Héry
 
@@ -14800,7 +14811,7 @@ var words = ['être', 'avoir', 'faire',
 
 exports.words = words;
 
-},{}],113:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 /*
 Copyright (c) 2011, David Przybilla, Chris Umbel
 
@@ -14854,7 +14865,7 @@ var words = [
 // tell the world about the noise words.    
 exports.words = words;
 
-},{}],114:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 // Original copyright:
 /*
  Licensed to the Apache Software Foundation (ASF) under one or more
@@ -14915,7 +14926,7 @@ var words = ['の', 'に', 'は', 'を', 'た', 'が', 'で', 'て', 'と', 'し
 // tell the world about the noise words.
 module.exports = words;
 
-},{}],115:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 /*
 Copyright (c) 2014, Kristoffer Brabrand
 
@@ -14958,7 +14969,7 @@ var words = [
 
 // tell the world about the noise words.
 exports.words = words;
-},{}],116:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 /*
 Copyright (c) 2013, Paweł Łaskarzewski
 
@@ -15022,7 +15033,7 @@ var words = [
 // tell the world about the noise words.
 exports.words = words;
 
-},{}],117:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 /*
 Copyright (c) 2011, Polyakov Vladimir, Chris Umbel
 
@@ -15065,7 +15076,7 @@ var words = [
 // tell the world about the noise words.    
 exports.words = words;
 
-},{}],118:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 /*
  Copyright (c) 2014, Lee Wenzhu
 
@@ -15165,7 +15176,7 @@ function uniqueVertexs(edges) {
 
 module.exports = Topological;
 
-},{}],119:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 /*
  Copyright (c) 2012, Guillaume Marty
 
@@ -15286,7 +15297,7 @@ exports.replacer = replacer;
 exports.flip = flip;
 exports.merge = merge;
 
-},{}],120:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Chris Umbel
@@ -15376,7 +15387,7 @@ DataFile.prototype.get = get;
 module.exports = DataFile;
 
 }).call(this,require("buffer").Buffer)
-},{"./wordnet_file":123,"buffer":14,"fs":13,"util":137}],121:[function(require,module,exports){
+},{"./wordnet_file":124,"buffer":15,"fs":14,"util":138}],122:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Chris Umbel
@@ -15520,7 +15531,7 @@ IndexFile.prototype._findAt = findAt;
 module.exports = IndexFile;
 
 }).call(this,require("buffer").Buffer)
-},{"./wordnet_file":123,"buffer":14,"fs":13,"util":137}],122:[function(require,module,exports){
+},{"./wordnet_file":124,"buffer":15,"fs":14,"util":138}],123:[function(require,module,exports){
 /*
 Copyright (c) 2011, Chris Umbel
 
@@ -15691,7 +15702,7 @@ function WordNet(dataDir) {
 
 module.exports = WordNet;
 
-},{"./data_file":120,"./index_file":121,"WNdb":2}],123:[function(require,module,exports){
+},{"./data_file":121,"./index_file":122,"WNdb":3}],124:[function(require,module,exports){
 (function (Buffer){
 /*
 Copyright (c) 2011, Chris Umbel
@@ -15764,7 +15775,7 @@ WordNetFile.appendLineChar = appendLineChar;
 module.exports = WordNetFile;
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":14,"fs":13,"path":124,"util":137}],124:[function(require,module,exports){
+},{"buffer":15,"fs":14,"path":125,"util":138}],125:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -15992,7 +16003,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":125}],125:[function(require,module,exports){
+},{"_process":126}],126:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -16085,7 +16096,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],126:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 (function (Buffer){
 
 /**
@@ -16441,7 +16452,7 @@ proto.ref = function ref () {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"assert":8,"buffer":14,"debug":16,"ref":127,"util":137}],127:[function(require,module,exports){
+},{"assert":9,"buffer":15,"debug":17,"ref":128,"util":138}],128:[function(require,module,exports){
 (function (Buffer){
 
 var assert = require('assert')
@@ -17901,7 +17912,7 @@ function overwriteInspect (inspect) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"assert":8,"bindings":10,"buffer":14,"debug":16}],128:[function(require,module,exports){
+},{"assert":9,"bindings":11,"buffer":15,"debug":17}],129:[function(require,module,exports){
 (function (global){
 // Copyright (c) 2011, Chris Umbel
 
@@ -17917,7 +17928,7 @@ exports.Line.Segment = require('./line.segment');
 exports.Sylvester = require('./sylvester');
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./line":129,"./line.segment":130,"./matrix":131,"./plane":132,"./sylvester":133,"./vector":134}],129:[function(require,module,exports){
+},{"./line":130,"./line.segment":131,"./matrix":132,"./plane":133,"./sylvester":134,"./vector":135}],130:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 var Vector = require('./vector');
 var Matrix = require('./matrix');
@@ -18150,7 +18161,7 @@ Line.Z = Line.create(Vector.Zero(3), Vector.k);
 
 module.exports = Line;
 
-},{"./matrix":131,"./plane":132,"./sylvester":133,"./vector":134}],130:[function(require,module,exports){
+},{"./matrix":132,"./plane":133,"./sylvester":134,"./vector":135}],131:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 // Line.Segment class - depends on Line and its dependencies.
 
@@ -18278,7 +18289,7 @@ Line.Segment.create = function(v1, v2) {
 
 module.exports = Line.Segment;
 
-},{"./line":129,"./vector":134}],131:[function(require,module,exports){
+},{"./line":130,"./vector":135}],132:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 // Matrix class - depends on Vector.
 
@@ -19316,7 +19327,7 @@ Matrix.Ones = function(n, m) {
 
 module.exports = Matrix;
 
-},{"./sylvester":133,"./vector":134,"fs":13,"lapack":41}],132:[function(require,module,exports){
+},{"./sylvester":134,"./vector":135,"fs":14,"lapack":42}],133:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 // Plane class - depends on Vector. Some methods require Matrix and Line.
 var Vector = require('./vector');
@@ -19592,7 +19603,7 @@ Plane.fromPoints = function(points) {
 
 module.exports = Plane;
 
-},{"./line":129,"./matrix":131,"./sylvester":133,"./vector":134}],133:[function(require,module,exports){
+},{"./line":130,"./matrix":132,"./sylvester":134,"./vector":135}],134:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 // This file is required in order for any other classes to work. Some Vector methods work with the
 // other Sylvester classes and are useless unless they are included. Other classes such as Line and
@@ -19609,7 +19620,7 @@ var Sylvester = {
 
 module.exports = Sylvester;
 
-},{}],134:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 // Copyright (c) 2011, Chris Umbel, James Coglan
 // This file is required in order for any other classes to work. Some Vector methods work with the
 // other Sylvester classes and are useless unless they are included. Other classes such as Line and
@@ -20049,7 +20060,7 @@ Vector.log = function(v) {
 
 module.exports = Vector;
 
-},{"./matrix":131,"./sylvester":133}],135:[function(require,module,exports){
+},{"./matrix":132,"./sylvester":134}],136:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -21599,14 +21610,14 @@ module.exports = Vector;
   }
 }.call(this));
 
-},{}],136:[function(require,module,exports){
+},{}],137:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],137:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -22196,27 +22207,27 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":136,"_process":125,"inherits":37}],138:[function(require,module,exports){
+},{"./support/isBuffer":137,"_process":126,"inherits":38}],139:[function(require,module,exports){
 var createElement = require("./vdom/create-element.js")
 
 module.exports = createElement
 
-},{"./vdom/create-element.js":143}],139:[function(require,module,exports){
+},{"./vdom/create-element.js":144}],140:[function(require,module,exports){
 var diff = require("./vtree/diff.js")
 
 module.exports = diff
 
-},{"./vtree/diff.js":163}],140:[function(require,module,exports){
+},{"./vtree/diff.js":164}],141:[function(require,module,exports){
 var h = require("./virtual-hyperscript/index.js")
 
 module.exports = h
 
-},{"./virtual-hyperscript/index.js":150}],141:[function(require,module,exports){
+},{"./virtual-hyperscript/index.js":151}],142:[function(require,module,exports){
 var patch = require("./vdom/patch.js")
 
 module.exports = patch
 
-},{"./vdom/patch.js":146}],142:[function(require,module,exports){
+},{"./vdom/patch.js":147}],143:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook.js")
 
@@ -22315,7 +22326,7 @@ function getPrototype(value) {
     }
 }
 
-},{"../vnode/is-vhook.js":154,"is-object":39}],143:[function(require,module,exports){
+},{"../vnode/is-vhook.js":155,"is-object":40}],144:[function(require,module,exports){
 var document = require("global/document")
 
 var applyProperties = require("./apply-properties")
@@ -22363,7 +22374,7 @@ function createElement(vnode, opts) {
     return node
 }
 
-},{"../vnode/handle-thunk.js":152,"../vnode/is-vnode.js":155,"../vnode/is-vtext.js":156,"../vnode/is-widget.js":157,"./apply-properties":142,"global/document":33}],144:[function(require,module,exports){
+},{"../vnode/handle-thunk.js":153,"../vnode/is-vnode.js":156,"../vnode/is-vtext.js":157,"../vnode/is-widget.js":158,"./apply-properties":143,"global/document":34}],145:[function(require,module,exports){
 // Maps a virtual DOM tree onto a real DOM tree in an efficient manner.
 // We don't want to read all of the DOM nodes in the tree so we use
 // the in-order tree indexing to eliminate recursion down certain branches.
@@ -22450,7 +22461,7 @@ function ascending(a, b) {
     return a > b ? 1 : -1
 }
 
-},{}],145:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 var applyProperties = require("./apply-properties")
 
 var isWidget = require("../vnode/is-widget.js")
@@ -22603,7 +22614,7 @@ function replaceRoot(oldRoot, newRoot) {
     return newRoot;
 }
 
-},{"../vnode/is-widget.js":157,"../vnode/vpatch.js":160,"./apply-properties":142,"./update-widget":147}],146:[function(require,module,exports){
+},{"../vnode/is-widget.js":158,"../vnode/vpatch.js":161,"./apply-properties":143,"./update-widget":148}],147:[function(require,module,exports){
 var document = require("global/document")
 var isArray = require("x-is-array")
 
@@ -22685,7 +22696,7 @@ function patchIndices(patches) {
     return indices
 }
 
-},{"./create-element":143,"./dom-index":144,"./patch-op":145,"global/document":33,"x-is-array":164}],147:[function(require,module,exports){
+},{"./create-element":144,"./dom-index":145,"./patch-op":146,"global/document":34,"x-is-array":165}],148:[function(require,module,exports){
 var isWidget = require("../vnode/is-widget.js")
 
 module.exports = updateWidget
@@ -22702,7 +22713,7 @@ function updateWidget(a, b) {
     return false
 }
 
-},{"../vnode/is-widget.js":157}],148:[function(require,module,exports){
+},{"../vnode/is-widget.js":158}],149:[function(require,module,exports){
 'use strict';
 
 var EvStore = require('ev-store');
@@ -22731,7 +22742,7 @@ EvHook.prototype.unhook = function(node, propertyName) {
     es[propName] = undefined;
 };
 
-},{"ev-store":18}],149:[function(require,module,exports){
+},{"ev-store":19}],150:[function(require,module,exports){
 'use strict';
 
 module.exports = SoftSetHook;
@@ -22750,7 +22761,7 @@ SoftSetHook.prototype.hook = function (node, propertyName) {
     }
 };
 
-},{}],150:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 'use strict';
 
 var isArray = require('x-is-array');
@@ -22889,7 +22900,7 @@ function errorString(obj) {
     }
 }
 
-},{"../vnode/is-thunk":153,"../vnode/is-vhook":154,"../vnode/is-vnode":155,"../vnode/is-vtext":156,"../vnode/is-widget":157,"../vnode/vnode.js":159,"../vnode/vtext.js":161,"./hooks/ev-hook.js":148,"./hooks/soft-set-hook.js":149,"./parse-tag.js":151,"x-is-array":164}],151:[function(require,module,exports){
+},{"../vnode/is-thunk":154,"../vnode/is-vhook":155,"../vnode/is-vnode":156,"../vnode/is-vtext":157,"../vnode/is-widget":158,"../vnode/vnode.js":160,"../vnode/vtext.js":162,"./hooks/ev-hook.js":149,"./hooks/soft-set-hook.js":150,"./parse-tag.js":152,"x-is-array":165}],152:[function(require,module,exports){
 'use strict';
 
 var split = require('browser-split');
@@ -22945,7 +22956,7 @@ function parseTag(tag, props) {
     return props.namespace ? tagName : tagName.toUpperCase();
 }
 
-},{"browser-split":12}],152:[function(require,module,exports){
+},{"browser-split":13}],153:[function(require,module,exports){
 var isVNode = require("./is-vnode")
 var isVText = require("./is-vtext")
 var isWidget = require("./is-widget")
@@ -22987,14 +22998,14 @@ function renderThunk(thunk, previous) {
     return renderedThunk
 }
 
-},{"./is-thunk":153,"./is-vnode":155,"./is-vtext":156,"./is-widget":157}],153:[function(require,module,exports){
+},{"./is-thunk":154,"./is-vnode":156,"./is-vtext":157,"./is-widget":158}],154:[function(require,module,exports){
 module.exports = isThunk
 
 function isThunk(t) {
     return t && t.type === "Thunk"
 }
 
-},{}],154:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 module.exports = isHook
 
 function isHook(hook) {
@@ -23003,7 +23014,7 @@ function isHook(hook) {
        typeof hook.unhook === "function" && !hook.hasOwnProperty("unhook"))
 }
 
-},{}],155:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualNode
@@ -23012,7 +23023,7 @@ function isVirtualNode(x) {
     return x && x.type === "VirtualNode" && x.version === version
 }
 
-},{"./version":158}],156:[function(require,module,exports){
+},{"./version":159}],157:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = isVirtualText
@@ -23021,17 +23032,17 @@ function isVirtualText(x) {
     return x && x.type === "VirtualText" && x.version === version
 }
 
-},{"./version":158}],157:[function(require,module,exports){
+},{"./version":159}],158:[function(require,module,exports){
 module.exports = isWidget
 
 function isWidget(w) {
     return w && w.type === "Widget"
 }
 
-},{}],158:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 module.exports = "2"
 
-},{}],159:[function(require,module,exports){
+},{}],160:[function(require,module,exports){
 var version = require("./version")
 var isVNode = require("./is-vnode")
 var isWidget = require("./is-widget")
@@ -23105,7 +23116,7 @@ function VirtualNode(tagName, properties, children, key, namespace) {
 VirtualNode.prototype.version = version
 VirtualNode.prototype.type = "VirtualNode"
 
-},{"./is-thunk":153,"./is-vhook":154,"./is-vnode":155,"./is-widget":157,"./version":158}],160:[function(require,module,exports){
+},{"./is-thunk":154,"./is-vhook":155,"./is-vnode":156,"./is-widget":158,"./version":159}],161:[function(require,module,exports){
 var version = require("./version")
 
 VirtualPatch.NONE = 0
@@ -23129,7 +23140,7 @@ function VirtualPatch(type, vNode, patch) {
 VirtualPatch.prototype.version = version
 VirtualPatch.prototype.type = "VirtualPatch"
 
-},{"./version":158}],161:[function(require,module,exports){
+},{"./version":159}],162:[function(require,module,exports){
 var version = require("./version")
 
 module.exports = VirtualText
@@ -23141,7 +23152,7 @@ function VirtualText(text) {
 VirtualText.prototype.version = version
 VirtualText.prototype.type = "VirtualText"
 
-},{"./version":158}],162:[function(require,module,exports){
+},{"./version":159}],163:[function(require,module,exports){
 var isObject = require("is-object")
 var isHook = require("../vnode/is-vhook")
 
@@ -23201,7 +23212,7 @@ function getPrototype(value) {
   }
 }
 
-},{"../vnode/is-vhook":154,"is-object":39}],163:[function(require,module,exports){
+},{"../vnode/is-vhook":155,"is-object":40}],164:[function(require,module,exports){
 var isArray = require("x-is-array")
 
 var VPatch = require("../vnode/vpatch")
@@ -23630,7 +23641,7 @@ function appendPatch(apply, patch) {
     }
 }
 
-},{"../vnode/handle-thunk":152,"../vnode/is-thunk":153,"../vnode/is-vnode":155,"../vnode/is-vtext":156,"../vnode/is-widget":157,"../vnode/vpatch":160,"./diff-props":162,"x-is-array":164}],164:[function(require,module,exports){
+},{"../vnode/handle-thunk":153,"../vnode/is-thunk":154,"../vnode/is-vnode":156,"../vnode/is-vtext":157,"../vnode/is-widget":158,"../vnode/vpatch":161,"./diff-props":163,"x-is-array":165}],165:[function(require,module,exports){
 var nativeIsArray = Array.isArray
 var toString = Object.prototype.toString
 
@@ -23640,4 +23651,4 @@ function isArray(obj) {
     return toString.call(obj) === "[object Array]"
 }
 
-},{}]},{},[1]);
+},{}]},{},[2]);
