@@ -87,7 +87,7 @@ function load_list(name, done) {
 
     var req = new XMLHttpRequest();
 
-    req.open('GET', '/' + name + '.json', false);
+    req.open('GET', name + '.json', false);
     req.send(null);
 
     if (req.status === 200) {
