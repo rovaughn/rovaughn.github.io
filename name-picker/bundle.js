@@ -69,7 +69,7 @@ var patch = require('virtual-dom/patch');
 var createElement = require('virtual-dom/create-element');
 var lcs = require('./lcs');
 
-var lists = ['Male', 'Female', 'Pokemon'];
+var lists = ['Male', 'Female', 'Pokemon', 'Brands'];
 
 var listmemo = {};
 var scorememo = {};
