@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html style="height: 100%;">
+    <head>
+        <meta charset="utf-8">
+    </head>
+    <body style="height: 100%; position: relative; background-color: black;">
+        <div id="main"></div>
+        <script src="https://fb.me/react-15.0.2.js"></script>
+        <script src="https://fb.me/react-dom-15.0.2.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+        <script type="text/babel">
+var pages = [
+    "https://news.ycombinator.com/",
+    "https://www.reddit.com/",
+    "https://www.mspaintadventures.com/",
+    "https://xkcd.com/",
+    "http://www.smbc-comics.com/",
+    "http://www.qwantz.com/",
+    "http://oglaf.com/",
+    "http://www.asofterworld.com/",
+    "http://buttersafe.com/",
+    "http://pbfcomics.com/",
+    "http://questionablecontent.net/",
+    "http://www.buttercupfestival.com/",
+    "http://www.jspowerhour.com/",
+];
+
+/*var pages = [
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+    'http://localhost:8000/',
+];*/
+
+const Main = React.createClass({
+    getInitialState() {
+        return {
+            hovered: null
+        };
+    },
+
+    hover(index) {
+        return () => {
+            this.setState({
+                hovered: index
+            });
+        };
+    },
+
+    render() {
+        const total_percentage = 90;
+        const { hovered } = this.state;
+
+        if (hovered === null) {
+            const main_style = {
+                width:    total_percentage + '%',
+                height:   total_percentage + '%',
+                margin:   'auto',
+                position: 'absolute',
+            };
+
+            const iframe_style = {
+                width:   (total_percentage/pages.length) + '%',
+                height:  total_percentage + '%',
+                border:  'none',
+                outline: '1px solid black',
+            };
+
+            return <div style={main_style}>
+                {pages.map((page, index) =>
+                    <iframe key={index}
+                            onMouseOver={this.hover(index)} style={iframe_style}
+                            scrolling="no" seamless="seamless" src={page}/>
+                )}
+            </div>;
+        } else {
+            const main_percentage  = 80;
+            const other_percentage = (100 - main_percentage) / pages.length;
+
+            const main_style = {
+                width:    total_percentage + '%',
+                height:   total_percentage + '%',
+                margin:   'auto',
+                position: 'absolute',
+            };
+
+            const main_iframe_style = {
+                width:   main_percentage + '%',
+                height:  total_percentage + '%',
+                border:  'none',
+                outline: '1px solid red',
+            };
+
+            const other_iframe_style = {
+                width:   other_percentage + '%',
+                height:  total_percentage + '%',
+                border:  'none',
+                outline: '1px solid black',
+            };
+
+            return <div style={main_style}>
+                {pages.slice(0, hovered).map((page, index) =>
+                    <iframe key={index} onMouseOver={this.hover(index)}
+                            scrolling="no"
+                            seamless="seamless"
+                            style={other_iframe_style}
+                            src={page}/>
+                ).concat([
+                    <iframe scrolling="yes" key={hovered} style={main_iframe_style} src={pages[hovered]}/>
+                ]).concat(
+                pages.slice(hovered + 1).map((page, index) =>
+                    <iframe key={hovered + 1 + index} onMouseOver={this.hover(hovered + 1 + index)}
+                            scrolling="no"
+                            seamless="seamless"
+                            style={other_iframe_style}
+                            src={page}/>
+                ))}
+            </div>;
+        }
+    }
+});
+
+window.main = ReactDOM.render(<Main/>, document.getElementById('main'));
+        </script>
+    </body>
+</html>
