@@ -37,6 +37,10 @@ var pages = [
     'http://localhost:8000/',
 ];*/
 
+function proxy(url) {
+    return 'https://www.google.com/search?q=%' + url + '&btnI=Im+Feeling+Lucky';
+}
+
 const Main = React.createClass({
     getInitialState() {
         return {
@@ -75,7 +79,7 @@ const Main = React.createClass({
                 {pages.map((page, index) =>
                     <iframe key={index}
                             onMouseOver={this.hover(index)} style={iframe_style}
-                            scrolling="no" seamless="seamless" src={page}/>
+                            scrolling="no" seamless="seamless" src={proxy(page)}/>
                 )}
             </div>;
         } else {
@@ -93,7 +97,7 @@ const Main = React.createClass({
                 width:   main_percentage + '%',
                 height:  total_percentage + '%',
                 border:  'none',
-                outline: '1px solid red',
+                outline: '1px solid black',
             };
 
             const other_iframe_style = {
@@ -109,16 +113,17 @@ const Main = React.createClass({
                             scrolling="no"
                             seamless="seamless"
                             style={other_iframe_style}
-                            src={page}/>
+                            src={proxy(page)}/>
                 ).concat([
-                    <iframe scrolling="yes" key={hovered} style={main_iframe_style} src={pages[hovered]}/>
+                    <iframe scrolling="yes" key={hovered}
+style={main_iframe_style} src={proxy(pages[hovered])}/>
                 ]).concat(
                 pages.slice(hovered + 1).map((page, index) =>
                     <iframe key={hovered + 1 + index} onMouseOver={this.hover(hovered + 1 + index)}
                             scrolling="no"
                             seamless="seamless"
                             style={other_iframe_style}
-                            src={page}/>
+                            src={proxy(page)}/>
                 ))}
             </div>;
         }
