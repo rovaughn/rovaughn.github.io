@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+body {
+    font-size: 40pt;
+    font-family: serif;
+}
+
+table td {
+    border: 1px solid black;
+    padding: 0;
+    width: 60pt;
+    height: 60pt;
+    text-align: center;
+}
+
+#timer {
+    width: 338px;
+    text-align: center;
+}
+
+#next-game {
+    margin: 100px;
+    font-size: 40pt;
+}
+
+        </style>
+    </head>
+    <body>
+        <div id="main">
+        </div>
+    <script>
+
+var classic_dice = [
+    'AACIOT',
+    'ABILTY',
+    'ABJMOQ',
+    'ACDEMP',
+    'ACELRS',
+    'ADENVZ',
+    'AHMORS',
+    'BIFORX',
+    'DENOSW',
+    'DKNOTU',
+    'EEFHIY',
+    'EGKLUY',
+    'EGINTV',
+    'EHINPS',
+    'ELPSTU',
+    'GILRUW',
+];
+
+var new_dice = [
+    'AAEEGN',
+    'ABBJOO',
+    'ACHOPS',
+    'AFFKPS',
+    'AOOTTW',
+    'CIMOTU',
+    'DEILRX',
+    'DELRVY',
+    'DISTTY',
+    'EEGHNW',
+    'EEINSU',
+    'EHRTVW',
+    'EIOSST',
+    'ELRTTY',
+    'HIMNUQ',
+    'HLNNRZ',
+];
+
+function start() {
+    var dice = classic_dice;
+
+    function shuffle(a) {
+        var j, x, i;
+
+        for (var i = a.length; i; i--) {
+            j = Math.floor(Math.random() * i);
+            x = a[i - 1];
+            a[i - 1] = a[j];
+            a[j] = x;
+        }
+    }
+
+    shuffle(dice);
+
+    var table = document.createElement('table');
+    var tbody = table.appendChild(document.createElement('tbody'));
+
+    for (var y = 0; y < 4; y++) {
+        var tr = tbody.appendChild(document.createElement('tr'));
+
+        for (var x = 0; x < 4; x++) {
+            var td = tr.appendChild(document.createElement('td'));
+            var die = dice[4*y + x];
+            var letter = die[Math.floor(Math.random() * 6)];
+
+            if (letter === 'Q') {
+                letter = 'Qu';
+            }
+
+            td.innerText = letter;
+        }
+    }
+
+    var main = document.getElementById('main');
+
+    while (main.firstChild) {
+        main.removeChild(main.firstChild);
+    }
+
+    main.appendChild(table);
+
+    var timer = main.appendChild(document.createElement('p'));
+    timer.id = 'timer';
+    var start_time = +new Date();
+    var end_time = +new Date() + 3*60*1000;
+    var interval;
+
+    function update_timer() {
+        var remaining = (end_time - +new Date()) / 1000;
+
+        if (remaining <= 0) {
+            clearInterval(interval);
+            main.removeChild(table);
+            main.removeChild(timer);
+            var btn = main.appendChild(document.createElement('button'));
+
+            btn.id = 'next-game';
+            btn.innerText = 'Next game';
+            btn.onclick = start;
+        } else {
+            var minutes = Math.floor(remaining / 60);
+            var seconds = Math.floor(remaining % 60);
+
+            if (seconds < 10) {
+                seconds = '0' + seconds;
+            }
+
+            timer.innerText = minutes + ':' + seconds;
+        }
+    }
+
+    update_timer();
+    interval = setInterval(update_timer, 100);
+}
+
+start();
+
+    </script>
+    </body>
+</html>
