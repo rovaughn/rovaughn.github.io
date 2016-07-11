@@ -26,10 +26,35 @@ table td {
     font-size: 40pt;
 }
 
+#options {
+    font-size: 20pt;
+}
+
         </style>
     </head>
     <body>
         <div id="main">
+            <button id="next-game" onclick="start();">Start</button>
+            <form id="options">
+                <p>
+                    <input type="radio" name="dice" value="classic" id="classic-dice" checked>
+                    <label for="classic-dice">Classic dice</label>
+                </p>
+                <p>
+                    <input type="radio" name="dice" value="new" id="new-dice">
+                    <label for="new-dice">New dice</label>
+                </p>
+                <p>
+                    <input type="checkbox" name="rotate" id="rotate" checked>
+                    <label for="rotate">Rotate</label>
+                </p>
+                <p>
+                    Turn length:
+                    <input type="text" name="turn-minutes" value="3" size="2">
+                    :
+                    <input type="text" name="turn-seconds" value="00" size="2">
+                </p>
+            </form>
         </div>
     <script>
 
@@ -73,14 +98,32 @@ var new_dice = [
 
 var main = document.getElementById('main');
 
-var btn = main.appendChild(document.createElement('button'));
-
-btn.id = 'next-game';
-btn.innerText = 'Start';
-btn.onclick = start;
+var opt_rotate;
+var opt_dice_kind;
+var opt_turn_seconds;
 
 function start() {
-    var dice = classic_dice;
+    var options = document.getElementById('options')
+
+    if (options) {
+        opt_rotate = options.rotate.checked;
+        opt_dice_kind = options.dice.value;
+        opt_turn_seconds = (
+            60*(+options['turn-minutes'].value) +
+            (+options['turn-seconds'].value)
+        );
+    }
+
+    var dice;
+   
+    if (opt_dice_kind === 'classic') {
+        dice = classic_dice;
+    } else if (opt_dice_kind === 'new') {
+        dice = new_dice;
+    } else {
+        console.error('bad dice kind', opt_dice_kind);
+        dice = classic_dice;
+    }
 
     function shuffle(a) {
         var j, x, i;
@@ -106,6 +149,13 @@ function start() {
             var die = dice[4*y + x];
             var letter = die[Math.floor(Math.random() * 6)];
 
+            if (opt_rotate) {
+                var rotation = 90 * Math.floor(Math.random() * 4);
+                td.style['transform'] = 'rotate(' + rotation + 'deg)';
+                td.style['-ms-transform'] = 'rotate(' + rotation + 'deg)';
+                td.style['-webkit-transform'] = 'rotate(' + rotation + 'deg)';
+            }
+
             if (letter === 'Q') {
                 letter = 'Qu';
             }
@@ -123,7 +173,7 @@ function start() {
     var timer = main.appendChild(document.createElement('p'));
     timer.id = 'timer';
     var start_time = +new Date();
-    var end_time = +new Date() + 3*60*1000;
+    var end_time = +new Date() + opt_turn_seconds*1000;
     var interval;
 
     function update_timer() {
