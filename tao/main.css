@@ -2,12 +2,41 @@
 body {
     font-family: "Palatino Linotype", serif;
     color:       #111;
-    font-size:   15px;
-    line-height: 22px; /* 1.48 * font-size */
+    margin-left: 4em;
 }
 
 a:hover {
     text-decoration: underline;
+}
+
+a {
+    text-decoration: none;
+}
+
+h1 {
+    line-height: 36pt;
+    font-size: 18pt;
+}
+
+.controls {
+    line-height: 18pt;
+    font-size: 12pt;
+}
+
+.chapter {
+    margin-bottom: 36pt;
+}
+
+.chapter p {
+    font-size: 12pt;
+    line-height: 18pt;
+}
+
+.chapter h2 {
+    float: left;
+    margin: 0 0 0 -1.9em;
+    line-height: 36pt;
+    font-size: 18pt;
 }
 
 #main {
@@ -15,24 +44,7 @@ a:hover {
     width: 350px;
 }
 
-.number {
-    font-weight: bold;
-}
-
 .tao {
     text-rendering: optimizeLegibility;
-}
-
-ul.controls {
-    text-align: center;
-    display: block;
-    margin: 0;
-    padding: 10px 0;
-}
-
-.controls li {
-    list-style-type: none;
-    display: inline-block;
-    padding: 0px 10px;
 }
 
