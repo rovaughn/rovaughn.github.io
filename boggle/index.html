@@ -71,6 +71,14 @@ var new_dice = [
     'HLNNRZ',
 ];
 
+var main = document.getElementById('main');
+
+var btn = main.appendChild(document.createElement('button'));
+
+btn.id = 'next-game';
+btn.innerText = 'Start';
+btn.onclick = start;
+
 function start() {
     var dice = classic_dice;
 
@@ -105,8 +113,6 @@ function start() {
             td.innerText = letter;
         }
     }
-
-    var main = document.getElementById('main');
 
     while (main.firstChild) {
         main.removeChild(main.firstChild);
@@ -147,8 +153,6 @@ function start() {
     update_timer();
     interval = setInterval(update_timer, 100);
 }
-
-start();
 
     </script>
     </body>
