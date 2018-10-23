@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html charset="UTF-8">
+    <head>
+        <meta name="viewport" content="width=300, initial-scale=1">
+        <title>Breath training</title>
+        <style>
+            html {
+                background-color: black;
+                color: white;
+            }
+            
+            #container {
+                margin: auto;
+                width: 300px;
+                font-size: 20pt;
+                text-align: center;
+                padding-top: 100px;
+            }
+
+            #start-btn {
+                font-size: 20pt;
+            }
+
+            input {
+                font-size: 17pt;
+                width: 50px;
+            }
+
+            #start {
+                font-size: 17pt;
+            }
+
+            #timer {
+                text-align: center;
+                font-size: 20pt;
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <div id="start">
+                <p><button id="start-btn">Start</button></p>
+                <p>Breaths per minute: <input id="bpm" value="5"></p>
+                <p>Training time (minutes): <input id="min" value="7"></p>
+            </div>
+            <div id="timer">
+                <canvas width="202" height="202" id="canvas">Sorry, your browser doesn't support canvas</canvas>
+                <p id="command"></p>
+                <p id="remaining"></p>
+            </div>
+        </div>
+        <script src="main.js"></script>
+    </body>
+</html>
