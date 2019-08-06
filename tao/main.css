@@ -1,8 +1,12 @@
-
 body {
     font-family: "Palatino Linotype", serif;
     color:       #111;
-    margin-left: 4em;
+    text-rendering: optimizeLegibility;
+}
+
+.body {
+    margin: auto;
+    width: 350px;
 }
 
 a:hover {
@@ -24,7 +28,7 @@ h1 {
 }
 
 .chapter {
-    margin-bottom: 36pt;
+    margin-top: 36pt;
 }
 
 .chapter p {
@@ -38,13 +42,3 @@ h1 {
     line-height: 36pt;
     font-size: 18pt;
 }
-
-#main {
-    margin: auto;
-    width: 350px;
-}
-
-.tao {
-    text-rendering: optimizeLegibility;
-}
-
